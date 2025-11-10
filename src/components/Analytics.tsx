@@ -168,46 +168,7 @@ export default function Analytics() {
     return keys.map(k => ({ day: fmtAxisDay(k), total: buckets[k] || 0 }));
   }, [filteredComplaints, startDate, endDate]);
 
-  // --- Room categorization & colors ---
-function categorizeRoom(name: string):
-  'Classroom' | 'Lab' | 'MAC' | 'Auditorium' | 'Studio' | 'Support' | 'BDV' | 'Other' {
-  const n = (name || '').toLowerCase().trim();
-
-  // angka murni: 205, 304, 413 → Classroom
-  if (/^\d+$/.test(n)) return 'Classroom';
-
-  if (n.includes('mac ')) return 'MAC';
-  if (n.includes('lab')) {
-    if (n.includes('photo') || n.includes('content') || n.includes('pr ')) return 'Studio';
-    if (n.includes('incubator')) return 'Studio';
-    return 'Lab';
-  }
-  if (n === 'auditorium') return 'Auditorium';
-  if (n === 'bdv') return 'BDV';
-  if (n.startsWith('sb')) return 'Support';          // contoh: SB05
-  if (n.includes('furniture')) return 'Support';     // Lab Furniture
-
-  return 'Other';
-}
-
-const ROOM_CATEGORY_COLORS: Record<ReturnType<typeof categorizeRoom>, string> = {
-  Classroom: '#2563eb',  // blue
-  Lab:        '#16a34a',  // green
-  MAC:        '#a855f7',  // purple
-  Auditorium: '#f59e0b',  // orange
-  Studio:     '#0ea5e9',  // cyan
-  Support:    '#64748b',  // slate
-  BDV:        '#ef4444',  // red
-  Other:      '#14b8a6',  // teal
-};
-
-const ROOM_LEGEND_PAYLOAD = Object.entries(ROOM_CATEGORY_COLORS).map(([cat, color]) => ({
-  id: cat,
-  type: 'square' as const,
-  value: cat,
-  color,
-}));
-
+  
   const PIE_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#0ea5e9', '#a855f7', '#14b8a6'];
 
   // ---- export aman ----
@@ -435,6 +396,7 @@ const exportToCSV = () => {
                       </ResponsiveContainer>
                     </div>
                   </div>
+
 
                   {/* Bar Rooms */}
 <div className="bg-white rounded-lg border p-4">
