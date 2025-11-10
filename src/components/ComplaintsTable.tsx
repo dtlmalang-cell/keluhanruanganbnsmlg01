@@ -484,6 +484,7 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
               </div>
 
 
+            </div>
 
             <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-200 flex gap-3 justify-end">
               <button
