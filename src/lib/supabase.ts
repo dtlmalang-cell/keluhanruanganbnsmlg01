@@ -8,12 +8,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export type Complaint = {
   id: string;
   date: string;
+  time_of_issue?: string;
+  time_of_repair?: string;
   user_name: string;
   complaint: string;
   category: string;
   room_number: string;
+  issue?: string;
+  solution?: string;
   admin_name: string;
   status: 'late' | 'done';
   created_at: string;
-  solution?: string;
 };

@@ -100,9 +100,16 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         </form>
 
         <div className="mt-6 pt-6 border-t border-gray-200">
-          <p className="text-center text-sm text-gray-600">
-            Use credentials: dtl@binus.edu or lsc@binus.edu
+          <p className="text-center text-sm text-gray-600 mb-2">
+            Available accounts:
           </p>
+          <ul className="text-xs text-gray-500 space-y-1">
+            <li>dtl@binus.edu</li>
+            <li>lsc@binus.edu</li>
+            <li>it@binus.edu</li>
+            <li>bm@binus.edu</li>
+            <li>me@binus.edu</li>
+          </ul>
         </div>
       </div>
     </div>

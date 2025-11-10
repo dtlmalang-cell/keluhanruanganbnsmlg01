@@ -63,10 +63,14 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
+    time_of_issue: '',
+    time_of_repair: '',
     user_name: '',
     complaint: '',
     category: '',
     room_number: '',
+    issue: '',
+    solution: '',
     admin_name: user?.email?.split('@')[0] || '',
     status: 'late'
   });
@@ -94,10 +98,14 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
     setLoading(false);
     setFormData({
       date: new Date().toISOString().split('T')[0],
+      time_of_issue: '',
+      time_of_repair: '',
       user_name: '',
       complaint: '',
       category: '',
       room_number: '',
+      issue: '',
+      solution: '',
       admin_name: user?.email?.split('@')[0] || '',
       status: 'late'
     });
@@ -125,17 +133,45 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+              Date
+            </label>
+            <input
+              type="date"
+              id="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="time_of_issue" className="block text-sm font-medium text-gray-700 mb-1">
+              Time of Issue
+            </label>
+            <input
+              type="time"
+              id="time_of_issue"
+              value={formData.time_of_issue}
+              onChange={(e) => setFormData({ ...formData, time_of_issue: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
         <div>
-          <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-            Date
+          <label htmlFor="time_of_repair" className="block text-sm font-medium text-gray-700 mb-1">
+            Time of Repair
           </label>
           <input
-            type="date"
-            id="date"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            type="time"
+            id="time_of_repair"
+            value={formData.time_of_repair}
+            onChange={(e) => setFormData({ ...formData, time_of_repair: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
           />
         </div>
 
@@ -195,6 +231,20 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
         </div>
 
         <div>
+          <label htmlFor="issue" className="block text-sm font-medium text-gray-700 mb-1">
+            Issue
+          </label>
+          <input
+            type="text"
+            id="issue"
+            value={formData.issue}
+            onChange={(e) => setFormData({ ...formData, issue: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Brief issue description"
+          />
+        </div>
+
+        <div>
           <label htmlFor="complaint" className="block text-sm font-medium text-gray-700 mb-1">
             Complaint Details
           </label>
@@ -206,6 +256,20 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
             placeholder="Describe the problem..."
             rows={4}
             required
+          />
+        </div>
+
+        <div>
+          <label htmlFor="solution" className="block text-sm font-medium text-gray-700 mb-1">
+            Solution
+          </label>
+          <textarea
+            id="solution"
+            value={formData.solution}
+            onChange={(e) => setFormData({ ...formData, solution: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Describe the solution..."
+            rows={3}
           />
         </div>
 
