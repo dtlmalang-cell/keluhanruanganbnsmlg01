@@ -333,7 +333,7 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                         onChange={(e) => handleStatusChange(complaint.id, e.target.value as 'late' | 'done')}
                         disabled={updatingStatus === complaint.id}
                         className={`text-xs font-medium rounded-full px-3 py-1 border-0 cursor-pointer transition-all ${
-                          complaint.status === 'done'
+                          complaint.status === 'ontime'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-amber-100 text-amber-800'
                         } ${updatingStatus === complaint.id ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
