@@ -92,7 +92,7 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
 
     const timeDifference = repairTimeInMinutes - issueTimeInMinutes;
 
-    return timeDifference < 20 ? 'done' : 'late';
+    return timeDifference < 20 ? 'ontime' : 'late';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
