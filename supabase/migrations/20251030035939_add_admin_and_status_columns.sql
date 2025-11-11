@@ -3,7 +3,7 @@
 
   1. Changes
     - Add `admin_name` column to track who submitted the report
-    - Add `status` column with values 'late' or 'done' (defaults to 'late')
+    - Add `status` column with values 'late' or 'ontime' (defaults to 'late')
     - Add update policy so authenticated users can update complaint status
     
   2. Security
