@@ -339,7 +339,7 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                         } ${updatingStatus === complaint.id ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
                       >
                         <option value="late">Late</option>
-                        <option value="done">On Time</option>
+                        <option value="ontime">On Time</option>
                       </select>
                       <button
                         onClick={() => handleEditClick(complaint)}
