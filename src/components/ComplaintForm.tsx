@@ -72,11 +72,28 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
     issue: '',
     solution: '',
     admin_name: user?.email?.split('@')[0] || '',
+    pic: '',
     status: 'late'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  const calculateStatus = (timeOfIssue: string, timeOfRepair: string): string => {
+    if (!timeOfIssue || !timeOfRepair) {
+      return 'late';
+    }
+
+    const [issueHours, issueMinutes] = timeOfIssue.split(':').map(Number);
+    const [repairHours, repairMinutes] = timeOfRepair.split(':').map(Number);
+
+    const issueTimeInMinutes = issueHours * 60 + issueMinutes;
+    const repairTimeInMinutes = repairHours * 60 + repairMinutes;
+
+    const timeDifference = repairTimeInMinutes - issueTimeInMinutes;
+
+    return timeDifference < 20 ? 'done' : 'late';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,9 +101,15 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
     setError('');
     setSuccess(false);
 
+    const calculatedStatus = calculateStatus(formData.time_of_issue, formData.time_of_repair);
+    const submissionData = {
+      ...formData,
+      status: calculatedStatus
+    };
+
     const { error: submitError } = await supabase
-      .from('complaints')    
-      .insert([formData]);
+      .from('complaints')
+      .insert([submissionData]);
 
     if (submitError) {
       setError(submitError.message);
@@ -107,6 +130,7 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
       issue: '',
       solution: '',
       admin_name: user?.email?.split('@')[0] || '',
+      pic: '',
       status: 'late'
     });
 
@@ -270,6 +294,20 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Describe the solution..."
             rows={3}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="pic" className="block text-sm font-medium text-gray-700 mb-1">
+            PIC (Person In Charge)
+          </label>
+          <input
+            type="text"
+            id="pic"
+            value={formData.pic}
+            onChange={(e) => setFormData({ ...formData, pic: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Enter person in charge"
           />
         </div>
 

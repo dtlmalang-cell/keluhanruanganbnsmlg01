@@ -17,6 +17,7 @@ export type Complaint = {
   issue?: string;
   solution?: string;
   admin_name: string;
+  pic?: string;
   status: 'late' | 'done';
   created_at: string;
 };

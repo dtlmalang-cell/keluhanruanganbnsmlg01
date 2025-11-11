@@ -16,6 +16,7 @@ type EditFormData = {
   complaint: string;
   solution: string;
   admin_name: string;
+  pic: string;
 };
 
 const CATEGORIES = [
@@ -142,7 +143,8 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
       issue: complaint.issue || '',
       complaint: complaint.complaint,
       solution: complaint.solution || '',
-      admin_name: complaint.admin_name
+      admin_name: complaint.admin_name,
+      pic: (complaint as any).pic || ''
     });
     setEditError('');
   };
@@ -258,6 +260,9 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                   Admin
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  PIC
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
               </tr>
@@ -317,6 +322,9 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                       <UserCog className="w-4 h-4 text-gray-400" />
                       {complaint.admin_name || 'N/A'}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <p className="text-sm text-gray-900">{(complaint as any).pic || '-'}</p>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -483,7 +491,18 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                 />
               </div>
 
-
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  PIC (Person In Charge)
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.pic}
+                  onChange={(e) => setEditFormData({ ...editFormData, pic: e.target.value })}
+                  placeholder="Enter person in charge"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
 
             <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-200 flex gap-3 justify-end">
