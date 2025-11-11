@@ -157,7 +157,7 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
 
     const updateData = {
       ...editFormData,
-      ...(editFormData.solution && { status: 'done' })
+      ...(editFormData.solution && { status: 'ontime' })
     };
 
     const { error: updateError } = await supabase
