@@ -112,7 +112,7 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
     });
   };
 
-  const handleStatusChange = async (complaintId: string, newStatus: 'late' | 'done') => {
+  const handleStatusChange = async (complaintId: string, newStatus: 'late' | 'ontime') => {
     setUpdatingStatus(complaintId);
 
     const { error: updateError } = await supabase
