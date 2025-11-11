@@ -568,7 +568,7 @@ const exportToCSV = () => {
               <td className="px-6 py-4 whitespace-nowrap text-sm">
                 <span
                   className={`px-3 py-1 text-xs font-medium rounded-full ${
-                    c?.status === 'done'
+                    c?.status === 'ontime'
                       ? 'bg-green-100 text-green-800'
                       : 'bg-amber-100 text-amber-800'
                   }`}
