@@ -20,18 +20,18 @@ type EditFormData = {
 };
 
 const CATEGORIES = [
-  'Webcam',
+  'AC',
   'Audio',
   'ATK',
-  'Computer',
   'BINUSMAYA',
-  'Software',
-  'Wacom',
-  'LCD',
-  'AC',
-  'TV',
+  'Computer',
   'Internet',
+  'LCD',
   'Room',
+  'Software',
+  'TV',
+  'Wacom',
+  'Webcam',
   'Etc'
 ];
 
