@@ -93,7 +93,7 @@ export default function Analytics() {
 
   const calculateStats = (complaints: Complaint[]) => {
     const late = complaints.filter(c => (c as any)?.status === 'late').length;
-    const done = complaints.filter(c => (c as any)?.status === 'ontime').length;
+    const ontime = complaints.filter(c => (c as any)?.status === 'ontime').length;
 
     const byCategory: Record<string, number> = {};
     const byRoom: Record<string, number> = {};
