@@ -480,7 +480,7 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Solution
-                  <span className="text-gray-500 font-normal text-xs ml-2">(Adding a solution will mark as Done)</span>
+                  <span className="text-gray-500 font-normal text-xs ml-2">(Adding a solution will mark as On Time)</span>
                 </label>
                 <textarea
                   value={editFormData.solution}
