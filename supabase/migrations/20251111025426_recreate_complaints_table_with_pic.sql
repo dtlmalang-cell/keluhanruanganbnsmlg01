@@ -27,7 +27,7 @@
 
   3. Important Notes
     - The status will be automatically calculated based on time difference
-    - If time between time_of_issue and time_of_repair is < 20 minutes: status = 'done'
+    - If time between time_of_issue and time_of_repair is < 20 minutes: status = 'on time'
     - If time between time_of_issue and time_of_repair is >= 20 minutes: status = 'late'
 */
 
