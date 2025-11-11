@@ -38,7 +38,7 @@ const ROOM_NUMBERS = [
   'Lab Furniture',
   'Photo Lab',
   'Auditorium',
-  'Content Lab',
+  '114',
   'MAC A',
   'MAC B',
   'PR Lab',
