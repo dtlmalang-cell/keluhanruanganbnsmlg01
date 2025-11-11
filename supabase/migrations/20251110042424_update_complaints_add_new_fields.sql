@@ -11,7 +11,7 @@
     - All new columns are nullable to maintain compatibility with existing data
     - Time fields allow tracking of issue occurrence and repair completion
     - Issue field provides a brief title/summary separate from detailed complaint
-    - Solution field tracks what was done to resolve the issue
+    - Solution field tracks what was ontime to resolve the issue
 */
 
 DO $$
