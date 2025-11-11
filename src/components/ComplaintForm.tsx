@@ -19,7 +19,7 @@ const CATEGORIES = [
 
 const ROOM_NUMBERS = [
   'SB05',
-  'Lab Furniture',
+  'SB07',
   '101',
   '102-103',
   '114',
