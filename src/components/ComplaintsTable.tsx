@@ -28,7 +28,7 @@ const CATEGORIES = [
   'Software',
   'Wacom',
   'LCD',
-  'AC'
+  'AC',
   'TV',
   'Internet',
   'Room',
