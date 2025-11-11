@@ -398,7 +398,7 @@ const exportToCSV = () => {
                   </div>
 
 
-                  {/* Bar Rooms */}
+{/* Bar Rooms */}
 <div className="bg-white rounded-lg border p-4">
   <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
   <div className="h-64">
@@ -407,26 +407,14 @@ const exportToCSV = () => {
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="name" interval={0} angle={-15} textAnchor="end" height={50} />
         <YAxis allowDecimals={false} />
-        <Tooltip
-          formatter={(value: any, _name, item: any) => {
-            const room = item?.payload?.name as string;
-            const cat = categorizeRoom(room);
-            return [value, cat]; // value, label
-          }}
-          labelFormatter={(label: string) => `Room: ${label}`}
-        />
-        <Legend payload={ROOM_LEGEND_PAYLOAD} verticalAlign="bottom" wrapperStyle={{ paddingTop: 8 }} />
-        <Bar dataKey="total" radius={[8, 8, 0, 0]}>
-          {roomBarData.map((d: any) => {
-            const cat = categorizeRoom(d.name);
-            const fill = ROOM_CATEGORY_COLORS[cat] || ROOM_CATEGORY_COLORS.Other;
-            return <Cell key={d.name} fill={fill} />;
-          })}
-        </Bar>
+        <Tooltip />
+        <Bar dataKey="total" radius={[8, 8, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   </div>
 </div>
+                </div>
+                
 
 
                 {/* Line Daily Trend */}
