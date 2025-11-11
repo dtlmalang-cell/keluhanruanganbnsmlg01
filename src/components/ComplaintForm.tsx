@@ -12,9 +12,11 @@ const CATEGORIES = [
   'Software',
   'Wacom',
   'LCD',
+  'AC',
   'TV',
   'Internet',
-  'Room'
+  'Room',
+  'Etc'
 ];
 
 const ROOM_NUMBERS = [
