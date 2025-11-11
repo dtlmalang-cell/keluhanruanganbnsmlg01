@@ -120,7 +120,7 @@ export default function Analytics() {
       { name: 'late', value: stats.late },
       { name: 'ontime', value: stats.done },
     ],
-    [stats.late, stats.done]
+    [stats.late, stats.ontime]
   );
 
   const categoryPieData = useMemo(
