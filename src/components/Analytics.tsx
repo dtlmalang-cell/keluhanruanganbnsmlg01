@@ -118,7 +118,7 @@ export default function Analytics() {
   const statusPieData = useMemo(
     () => [
       { name: 'late', value: stats.late },
-      { name: 'Done', value: stats.done },
+      { name: 'ontime', value: stats.done },
     ],
     [stats.late, stats.done]
   );
