@@ -57,7 +57,7 @@ export default function Analytics() {
   const [stats, setStats] = useState({
     total: 0,
     late: 0,
-    done: 0,
+    ontime: 0,
     byCategory: {} as Record<string, number>,
     byRoom: {} as Record<string, number>,
   });
