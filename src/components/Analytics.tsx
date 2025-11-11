@@ -258,7 +258,7 @@ const exportToCSV = () => {
     q(c?.complaint),            // Complaint
     q(c?.admin_name),           // Admin
     q(c?.solution ?? c?.resolution), // Solution (fallback ke resolution jika ada)
-    q(c?.status),               // Status ('late' | 'done')
+    q(c?.status),               // Status ('late' | 'ontime')
   ]);
 
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
