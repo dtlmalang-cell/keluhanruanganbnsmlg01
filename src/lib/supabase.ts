@@ -18,6 +18,6 @@ export type Complaint = {
   solution?: string;
   admin_name: string;
   pic?: string;
-  status: 'late' | 'done';
+  status: 'late' | 'ontime';
   created_at: string;
 };
