@@ -330,7 +330,7 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                     <div className="flex items-center gap-2">
                       <select
                         value={complaint.status}
-                        onChange={(e) => handleStatusChange(complaint.id, e.target.value as 'late' | 'done')}
+                        onChange={(e) => handleStatusChange(complaint.id, e.target.value as 'late' | 'ontime')}
                         disabled={updatingStatus === complaint.id}
                         className={`text-xs font-medium rounded-full px-3 py-1 border-0 cursor-pointer transition-all ${
                           complaint.status === 'ontime'
