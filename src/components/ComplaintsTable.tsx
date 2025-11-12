@@ -7,16 +7,12 @@ type ComplaintsTableProps = {
 };
 
 type EditFormData = {
-  time_of_issue: string;
-  time_of_repair: string;
   user_name: string;
   category: string;
   room_number: string;
-  issue: string;
   complaint: string;
   solution: string;
   admin_name: string;
-  pic: string;
 };
 
 const CATEGORIES = [
@@ -137,16 +133,12 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
   const handleEditClick = (complaint: Complaint) => {
     setEditingId(complaint.id);
     setEditFormData({
-      time_of_issue: complaint.time_of_issue || '',
-      time_of_repair: complaint.time_of_repair || '',
       user_name: complaint.user_name,
       category: complaint.category,
       room_number: complaint.room_number,
-      issue: complaint.issue || '',
       complaint: complaint.complaint,
       solution: complaint.solution || '',
-      admin_name: complaint.admin_name,
-      pic: (complaint as any).pic || ''
+      admin_name: complaint.admin_name
     });
     setEditError('');
   };
@@ -235,12 +227,6 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                   Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Time of Issue
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Time of Repair
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   User
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -250,19 +236,13 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                   Room
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Issue
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Complaint
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Solution
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Admin
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  PIC
+                  Solution
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -272,77 +252,44 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
             <tbody className="bg-white divide-y divide-gray-200">
               {complaints.map((complaint) => (
                 <tr key={complaint.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-sm text-gray-900">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      {formatDate(complaint.date)}
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {formatDate(complaint.date)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <p className="text-sm text-gray-900">{complaint.time_of_issue || '-'}</p>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {complaint.user_name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <p className="text-sm text-gray-900">{complaint.time_of_repair || '-'}</p>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                      {complaint.category}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-sm text-gray-900">
-                      <User className="w-4 h-4 text-gray-400" />
-                      {complaint.user_name}
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {complaint.room_number}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-gray-400" />
-                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                        {complaint.category}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-sm text-gray-900">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      {complaint.room_number}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900 line-clamp-2 max-w-md">
-                      {complaint.issue || '-'}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900 line-clamp-2 max-w-md">
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    <p className="line-clamp-2 max-w-md">
                       {complaint.complaint}
                     </p>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900 line-clamp-2 max-w-md">
-                      {complaint.solution ? complaint.solution : <span className="text-gray-400 italic">No solution added</span>}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {complaint.admin_name || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    <p className="line-clamp-2 max-w-md">
+                      {complaint.solution ? complaint.solution : <span className="text-gray-400 italic">-</span>}
                     </p>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-sm text-gray-900">
-                      <UserCog className="w-4 h-4 text-gray-400" />
-                      {complaint.admin_name || 'N/A'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <p className="text-sm text-gray-900">{(complaint as any).pic || '-'}</p>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <select
-                        value={complaint.status}
-                        onChange={(e) => handleStatusChange(complaint.id, e.target.value as 'late' | 'ontime')}
-                        disabled={updatingStatus === complaint.id}
-                        className={`text-xs font-medium rounded-full px-3 py-1 border-0 cursor-pointer transition-all ${
-                          complaint.status === 'ontime'
+                      <span
+                        className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          complaint.status === 'done'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-amber-100 text-amber-800'
-                        } ${updatingStatus === complaint.id ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
+                        }`}
                       >
-                        <option value="late">Late</option>
-                        <option value="ontime">On Time</option>
-                      </select>
+                        {complaint.status === 'done' ? 'Done' : 'Late'}
+                      </span>
                       <button
                         onClick={() => handleEditClick(complaint)}
                         className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -380,32 +327,6 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
             )}
 
             <div className="p-6 space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Time of Issue
-                  </label>
-                  <input
-                    type="time"
-                    value={editFormData.time_of_issue}
-                    onChange={(e) => setEditFormData({ ...editFormData, time_of_issue: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Time of Repair
-                  </label>
-                  <input
-                    type="time"
-                    value={editFormData.time_of_repair}
-                    onChange={(e) => setEditFormData({ ...editFormData, time_of_repair: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   User
@@ -456,19 +377,6 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Issue
-                </label>
-                <input
-                  type="text"
-                  value={editFormData.issue}
-                  onChange={(e) => setEditFormData({ ...editFormData, issue: e.target.value })}
-                  placeholder="Brief issue description"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Complaint Details
                 </label>
                 <textarea
@@ -481,8 +389,19 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Admin
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.admin_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, admin_name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Solution
-                  <span className="text-gray-500 font-normal text-xs ml-2">(Adding a solution will mark as On Time)</span>
                 </label>
                 <textarea
                   value={editFormData.solution}
@@ -490,19 +409,6 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                   placeholder="Describe the repair or solution applied..."
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  PIC (Person In Charge)
-                </label>
-                <input
-                  type="text"
-                  value={editFormData.pic}
-                  onChange={(e) => setEditFormData({ ...editFormData, pic: e.target.value })}
-                  placeholder="Enter person in charge"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>

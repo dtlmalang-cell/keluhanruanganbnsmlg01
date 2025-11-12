@@ -188,6 +188,9 @@ const exportToPDF = () => {
   // Helper: sanitisasi string agar aman untuk PDF (hapus newline berlebih)
   const s = (v: unknown) => String(v ?? '').replace(/\r?\n/g, ' ').trim();
 
+  // Helper: format status
+  const statusLabel = (status: string) => status === 'done' ? 'Done' : 'Late';
+
   // Body data sesuai urutan
   const body = filteredComplaints.map((c: any) => [
     fmtDateShort(c?.date),              // Date
@@ -196,8 +199,8 @@ const exportToPDF = () => {
     s(c?.room_number),                  // Room
     s(c?.complaint),                    // Complaint
     s(c?.admin_name),                   // Admin
-    s(c?.solution ?? c?.resolution),    // Solution (fallback ke resolution)
-    s(c?.status),                       // Status
+    s(c?.solution ?? ''),               // Solution
+    s(statusLabel(c?.status)),          // Status (Done or Late)
   ]);
 
   autoTable(doc, {
@@ -250,15 +253,17 @@ const exportToCSV = () => {
   const q = (v: unknown) =>
     `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
 
+  const statusLabel = (status: string) => status === 'done' ? 'Done' : 'Late';
+
   const rows = filteredComplaints.map((c: any) => [
-    q(c?.date),                 // Date (yyyy-mm-dd dari DB)
+    q(fmtDateShort(c?.date)),   // Date (formatted)
     q(c?.user_name),            // User
     q(c?.category),             // Category
     q(c?.room_number),          // Room
     q(c?.complaint),            // Complaint
     q(c?.admin_name),           // Admin
-    q(c?.solution ?? c?.resolution), // Solution (fallback ke resolution jika ada)
-    q(c?.status),               // Status ('late' | 'ontime')
+    q(c?.solution ?? ''),       // Solution
+    q(statusLabel(c?.status)),  // Status (Done or Late)
   ]);
 
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -568,12 +573,12 @@ const exportToCSV = () => {
               <td className="px-6 py-4 whitespace-nowrap text-sm">
                 <span
                   className={`px-3 py-1 text-xs font-medium rounded-full ${
-                    c?.status === 'ontime'
+                    c?.status === 'done'
                       ? 'bg-green-100 text-green-800'
                       : 'bg-amber-100 text-amber-800'
                   }`}
                 >
-                  {c?.status ?? ''}
+                  {c?.status === 'done' ? 'Done' : 'Late'}
                 </span>
               </td>
             </tr>
