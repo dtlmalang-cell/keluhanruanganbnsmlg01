@@ -48,6 +48,23 @@ function fmtAxisDay(yyyyMMdd: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
 }
 
+// Format "HH:MM" dari "HH:MM(:SS)?"
+const fmtTime = (t?: string | null) => {
+  if (!t) return '-';
+  const m = /^(\d{2}):(\d{2})/.exec(t);
+  return m ? `${m[1]}:${m[2]}` : t;
+};
+
+// Warna badge PIC
+const PIC_COLORS: Record<string, string> = {
+  DTL: 'bg-indigo-100 text-indigo-800',
+  IT:  'bg-emerald-100 text-emerald-800',
+  LSC: 'bg-amber-100 text-amber-800',
+  BM:  'bg-fuchsia-100 text-fuchsia-800',
+  ME:  'bg-sky-100 text-sky-800',
+};
+
+
 export default function Analytics() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -244,7 +261,20 @@ const exportToPDF = () => {
 
 const exportToCSV = () => {
   // Urutan header sesuai permintaan
-  const headers = ['Date', 'User', 'Category', 'Room', 'Complaint', 'Admin', 'Solution', 'Status'];
+  const headers = [
+    'Date',
+    'Time of Issue',
+    'Time of Repair',
+    'User',
+    'Category',
+    'Room',
+    'Issue',
+    'Complaint',
+    'Solution',
+    'Admin',
+    'PIC',
+    'Status',
+  ];
 
   // helper: bungkus nilai dengan tanda kutip, escape " dan hapus newline
   const q = (v: unknown) =>
@@ -252,13 +282,17 @@ const exportToCSV = () => {
 
   const rows = filteredComplaints.map((c: any) => [
     q(c?.date),                 // Date (yyyy-mm-dd dari DB)
+    q(c?.time_of_issue),        // Time of Issue
+    q(c?.time_of_repair),       // Time of Repair
     q(c?.user_name),            // User
     q(c?.category),             // Category
     q(c?.room_number),          // Room
+    q(c?.issue),                // Issue
     q(c?.complaint),            // Complaint
-    q(c?.admin_name),           // Admin
     q(c?.solution ?? c?.resolution), // Solution (fallback ke resolution jika ada)
-    q(c?.status),               // Status ('late' | 'ontime')
+    q(c?.admin_name),           // Admin
+    q((c as any)?.pic),         // PIC (DTL, IT, LSC, BM, ME)
+    q(c?.status),               // Status (late / ontime / done)
   ]);
 
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -271,6 +305,7 @@ const exportToCSV = () => {
   a.click();
   window.URL.revokeObjectURL(url);
 };
+
 
 
   return (
@@ -511,12 +546,16 @@ const exportToCSV = () => {
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time of Issue</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time of Repair</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Room</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Issue</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Complaint</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Admin</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solution</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Admin</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PIC</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
           </tr>
         </thead>
@@ -528,53 +567,85 @@ const exportToCSV = () => {
                 {fmtDateShort(c?.date)}
               </td>
 
+              {/* Time of Issue */}
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {fmtTime(c?.time_of_issue)}
+              </td>
+
+              {/* Time of Repair */}
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {fmtTime(c?.time_of_repair)}
+              </td>
+
               {/* User */}
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {c?.user_name ?? ''}
+                {c?.user_name ?? '-'}
               </td>
 
               {/* Category */}
               <td className="px-6 py-4 whitespace-nowrap text-sm">
                 <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                  {c?.category ?? ''}
+                  {c?.category ?? '-'}
                 </span>
               </td>
 
               {/* Room */}
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {c?.room_number ?? ''}
+                {c?.room_number ?? '-'}
+              </td>
+
+              {/* Issue */}
+              <td className="px-6 py-4 text-sm text-gray-900">
+                <p className="line-clamp-2 max-w-md">
+                  {c?.issue ?? '-'}
+                </p>
               </td>
 
               {/* Complaint */}
               <td className="px-6 py-4 text-sm text-gray-900">
                 <p className="line-clamp-2 max-w-md">
-                  {c?.complaint ?? ''}
+                  {c?.complaint ?? '-'}
+                </p>
+              </td>
+
+              {/* Solution */}
+              <td className="px-6 py-4 text-sm text-gray-900">
+                <p className="line-clamp-2 max-w-md">
+                  {c?.solution ?? c?.resolution ?? <span className="text-gray-400 italic">No solution added</span>}
                 </p>
               </td>
 
               {/* Admin */}
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {c?.admin_name ?? ''}
+                {c?.admin_name ?? 'N/A'}
               </td>
 
-              {/* Solution (fallback ke resolution bila ada) */}
-              <td className="px-6 py-4 text-sm text-gray-900">
-                <p className="line-clamp-2 max-w-md">
-                  {c?.solution ?? c?.resolution ?? ''}
-                </p>
+              {/* PIC */}
+              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                {(() => {
+                  const pic = (c as any)?.pic as string | undefined;
+                  if (!pic) return <span className="text-gray-400">-</span>;
+                  const cls = PIC_COLORS[pic] ?? 'bg-gray-100 text-gray-800';
+                  return (
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${cls}`}>
+                      {pic}
+                    </span>
+                  );
+                })()}
               </td>
 
               {/* Status */}
               <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <span
-                  className={`px-3 py-1 text-xs font-medium rounded-full ${
-                    c?.status === 'ontime'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {c?.status ?? ''}
-                </span>
+<span
+  className={`px-3 py-1 text-xs font-medium rounded-full ${
+    c?.status === 'done' || c?.status === 'ontime'
+      ? 'bg-green-100 text-green-800'
+      : 'bg-amber-100 text-amber-800'
+  }`}
+>
+  {c?.status ?? ''}
+</span>
+
               </td>
             </tr>
           ))}
@@ -583,6 +654,7 @@ const exportToCSV = () => {
     </div>
   </div>
 )}
+
 
     </div>
   );
