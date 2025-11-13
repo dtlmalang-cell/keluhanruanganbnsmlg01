@@ -329,29 +329,29 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
                     <p className="text-sm text-gray-900">{(complaint as any).pic || '-'}</p>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={complaint.status}
-                        onChange={(e) => handleStatusChange(complaint.id, e.target.value as 'late' | 'ontime')}
-                        disabled={updatingStatus === complaint.id}
-                        className={`text-xs font-medium rounded-full px-3 py-1 border-0 cursor-pointer transition-all ${
-                          complaint.status === 'ontime'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-amber-100 text-amber-800'
-                        } ${updatingStatus === complaint.id ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
-                      >
-                        <option value="late">Late</option>
-                        <option value="ontime">On Time</option>
-                      </select>
-                      <button
-                        onClick={() => handleEditClick(complaint)}
-                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit complaint"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+  <div className="flex items-center gap-2">
+    {/* Status badge (read-only) */}
+    <span
+      className={`px-3 py-1 text-xs font-medium rounded-full ${
+        complaint.status === 'ontime'
+          ? 'bg-green-100 text-green-800'
+          : 'bg-amber-100 text-amber-800'
+      }`}
+    >
+      {complaint.status === 'ontime' ? 'On Time' : 'Late'}
+    </span>
+
+    {/* Tombol Edit tetap ada */}
+    <button
+      onClick={() => handleEditClick(complaint)}
+      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+      title="Edit complaint"
+    >
+      <Edit2 className="w-4 h-4" />
+    </button>
+  </div>
+</td>
+
                 </tr>
               ))}
             </tbody>
