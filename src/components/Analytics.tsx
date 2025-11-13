@@ -258,6 +258,18 @@ const exportToPDF = () => {
   doc.save(`classroom-issues-${startDate}-to-${endDate}.pdf`);
 };
 
+  // Bersihkan teks sebelum export CSV
+const cleanText = (v: unknown) => {
+  return String(v ?? '')
+    .normalize('NFKC') // normalisasi unicode
+    // hapus karakter kontrol (newline dll akan kita ganti manual)
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+    // hapus zero-width & control marks
+    .replace(/[\u200B-\u200F\u202A-\u202E]/g, '')
+    // rapikan spasi beruntun
+    .replace(/\s+/g, ' ')
+    .trim();
+};
 
 const exportToCSV = () => {
   // Urutan header sesuai permintaan
@@ -277,8 +289,11 @@ const exportToCSV = () => {
   ];
 
   // helper: bungkus nilai dengan tanda kutip, escape " dan hapus newline
-  const q = (v: unknown) =>
-    `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+  const q = (v: unknown) => {
+  const cleaned = cleanText(v).replace(/"/g, '""'); // escape kutip
+  return `"${cleaned}"`;
+};
+
 
   const rows = filteredComplaints.map((c: any) => [
     q(c?.date),                 // Date (yyyy-mm-dd dari DB)
