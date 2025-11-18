@@ -261,7 +261,7 @@ const submissionData = {
 
         <div>
           <label htmlFor="issue" className="block text-sm font-medium text-gray-700 mb-1">
-            Issue
+            Issue (take chat from WhatsApp)
           </label>
           <input
             type="text"
@@ -275,7 +275,7 @@ const submissionData = {
 
         <div>
           <label htmlFor="complaint" className="block text-sm font-medium text-gray-700 mb-1">
-            Complaint Details
+            Complaint Details (Explain the cause and describe the problem.
           </label>
           <textarea
             id="complaint"
