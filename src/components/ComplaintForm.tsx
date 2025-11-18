@@ -104,10 +104,13 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
     setSuccess(false);
 
     const calculatedStatus = calculateStatus(formData.time_of_issue, formData.time_of_repair);
-    const submissionData = {
-      ...formData,
-      status: calculatedStatus
-    };
+const submissionData = {
+  ...formData,
+  time_of_issue: formData.time_of_issue || null,
+  time_of_repair: formData.time_of_repair || null,
+  status: calculatedStatus
+};
+
 
     const { error: submitError } = await supabase
       .from('complaints')
