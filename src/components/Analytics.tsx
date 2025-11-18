@@ -71,13 +71,14 @@ export default function Analytics() {
   const [filteredComplaints, setFilteredComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState({
-    total: 0,
-    late: 0,
-    ontime: 0,
-    byCategory: {} as Record<string, number>,
-    byRoom: {} as Record<string, number>,
-  });
+const [stats, setStats] = useState({
+  total: 0,
+  late: 0,
+  ontime: 0,
+  byCategory: {} as Record<string, number>,
+  byRoom: {} as Record<string, number>,
+});
+
 
   useEffect(() => {
     if (startDate && endDate) void fetchFilteredData();
@@ -108,28 +109,34 @@ export default function Analytics() {
     }
   };
 
-  const calculateStats = (complaints: Complaint[]) => {
-    const late = complaints.filter(c => (c as any)?.status === 'late').length;
-    const ontime = complaints.filter(c => (c as any)?.status === 'ontime').length;
+const calculateStats = (complaints: Complaint[]) => {
+  const late = complaints.filter(c => (c as any)?.status === 'late').length;
+  const ontime = complaints.filter(c => (c as any)?.status === 'ontime').length;
 
-    const byCategory: Record<string, number> = {};
-    const byRoom: Record<string, number> = {};
+  const byCategory: Record<string, number> = {};
+  const byRoom: Record<string, number> = {};
+  const byUser: Record<string, number> = {};
 
-    complaints.forEach(c => {
-      const cat = (c as any)?.category ?? 'Unknown';
-      const room = (c as any)?.room_number ?? 'Unknown';
-      byCategory[cat] = (byCategory[cat] || 0) + 1;
-      byRoom[room] = (byRoom[room] || 0) + 1;
-    });
+  complaints.forEach(c => {
+    const cat = (c as any)?.category ?? 'Unknown';
+    const room = (c as any)?.room_number ?? 'Unknown';
+    const user = (c as any)?.user_name ?? 'Unknown';
 
-    setStats({
-      total: complaints.length,
-      late,
-      ontime,
-      byCategory,
-      byRoom,
-    });
-  };
+    byCategory[cat] = (byCategory[cat] || 0) + 1;
+    byRoom[room] = (byRoom[room] || 0) + 1;
+    byUser[user] = (byUser[user] || 0) + 1;
+  });
+
+  setStats({
+    total: complaints.length,
+    late,
+    ontime,
+    byCategory,
+    byRoom,
+    byUser,
+  });
+};
+
 
   // ---- data untuk chart ----
   const statusPieData = useMemo(
