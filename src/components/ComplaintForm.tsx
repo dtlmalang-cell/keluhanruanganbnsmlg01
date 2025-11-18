@@ -275,7 +275,7 @@ const submissionData = {
 
         <div>
           <label htmlFor="complaint" className="block text-sm font-medium text-gray-700 mb-1">
-            Complaint Details (Explain the cause and describe the problem.)
+            Complaint Details (Explain the cause and describe the problem)
           </label>
           <textarea
             id="complaint"
