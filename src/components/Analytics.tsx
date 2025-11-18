@@ -5,6 +5,7 @@ import { supabase, type Complaint } from '../lib/supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+
 // Recharts (client only check)
 import {
   ResponsiveContainer,
@@ -71,14 +72,13 @@ export default function Analytics() {
   const [filteredComplaints, setFilteredComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-const [stats, setStats] = useState({
-  total: 0,
-  late: 0,
-  ontime: 0,
-  byCategory: {} as Record<string, number>,
-  byRoom: {} as Record<string, number>,
-});
-
+  const [stats, setStats] = useState({
+    total: 0,
+    late: 0,
+    ontime: 0,
+    byCategory: {} as Record<string, number>,
+    byRoom: {} as Record<string, number>,
+  });
 
   useEffect(() => {
     if (startDate && endDate) void fetchFilteredData();
@@ -109,34 +109,28 @@ const [stats, setStats] = useState({
     }
   };
 
-const calculateStats = (complaints: Complaint[]) => {
-  const late = complaints.filter(c => (c as any)?.status === 'late').length;
-  const ontime = complaints.filter(c => (c as any)?.status === 'ontime').length;
+  const calculateStats = (complaints: Complaint[]) => {
+    const late = complaints.filter(c => (c as any)?.status === 'late').length;
+    const ontime = complaints.filter(c => (c as any)?.status === 'ontime').length;
 
-  const byCategory: Record<string, number> = {};
-  const byRoom: Record<string, number> = {};
-  const byUser: Record<string, number> = {};
+    const byCategory: Record<string, number> = {};
+    const byRoom: Record<string, number> = {};
 
-  complaints.forEach(c => {
-    const cat = (c as any)?.category ?? 'Unknown';
-    const room = (c as any)?.room_number ?? 'Unknown';
-    const user = (c as any)?.user_name ?? 'Unknown';
+    complaints.forEach(c => {
+      const cat = (c as any)?.category ?? 'Unknown';
+      const room = (c as any)?.room_number ?? 'Unknown';
+      byCategory[cat] = (byCategory[cat] || 0) + 1;
+      byRoom[room] = (byRoom[room] || 0) + 1;
+    });
 
-    byCategory[cat] = (byCategory[cat] || 0) + 1;
-    byRoom[room] = (byRoom[room] || 0) + 1;
-    byUser[user] = (byUser[user] || 0) + 1;
-  });
-
-  setStats({
-    total: complaints.length,
-    late,
-    ontime,
-    byCategory,
-    byRoom,
-    byUser,
-  });
-};
-
+    setStats({
+      total: complaints.length,
+      late,
+      ontime,
+      byCategory,
+      byRoom,
+    });
+  };
 
   // ---- data untuk chart ----
   const statusPieData = useMemo(
@@ -191,15 +185,6 @@ const calculateStats = (complaints: Complaint[]) => {
 
     return keys.map(k => ({ day: fmtAxisDay(k), total: buckets[k] || 0 }));
   }, [filteredComplaints, startDate, endDate]);
-
-const topUsers = useMemo(
-  () =>
-    Object.entries(stats.byUser)
-      .map(([user, total]) => ({ user, total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5),
-  [stats.byUser]
-);
 
   
   const PIE_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#0ea5e9', '#a855f7', '#14b8a6'];
@@ -532,28 +517,6 @@ const exportToCSV = () => {
                 </div>
               </div>
             </div>
-
-              {/* Top Users */}
-  <div className="bg-gray-50 rounded-lg p-4">
-    <h3 className="font-semibold text-gray-800 mb-3">Top Users (Most Complaints)</h3>
-    <div className="space-y-2">
-      {topUsers.length === 0 ? (
-        <p className="text-sm text-gray-500">No user data</p>
-      ) : (
-        topUsers.map((u) => (
-          <div key={u.user || 'unknown'} className="flex justify-between items-center">
-            <span className="text-sm text-gray-700">
-              {u.user || 'Unknown'}
-            </span>
-            <span className="text-sm font-semibold text-gray-900">
-              {u.total}
-            </span>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-</div>
 
             <div className="flex gap-4">
               <button
