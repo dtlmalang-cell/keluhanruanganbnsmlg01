@@ -192,6 +192,15 @@ const calculateStats = (complaints: Complaint[]) => {
     return keys.map(k => ({ day: fmtAxisDay(k), total: buckets[k] || 0 }));
   }, [filteredComplaints, startDate, endDate]);
 
+const topUsers = useMemo(
+  () =>
+    Object.entries(stats.byUser)
+      .map(([user, total]) => ({ user, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5),
+  [stats.byUser]
+);
+
   
   const PIE_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#0ea5e9', '#a855f7', '#14b8a6'];
 
@@ -492,37 +501,61 @@ const exportToCSV = () => {
               </>
             )}
 
-            {/* Lists + Export */}
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-800 mb-3">Issues by Category</h3>
-                <div className="space-y-2">
-                  {Object.entries(stats.byCategory)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([category, count]) => (
-                      <div key={category} className="flex justify-between items-center">
-                        <span className="text-sm text-gray-700">{category}</span>
-                        <span className="text-sm font-semibold text-gray-900">{count}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
+{/* Lists + Export */}
+<div className="grid md:grid-cols-3 gap-6 mb-6">
+  {/* Issues by Category */}
+  <div className="bg-gray-50 rounded-lg p-4">
+    <h3 className="font-semibold text-gray-800 mb-3">Issues by Category</h3>
+    <div className="space-y-2">
+      {Object.entries(stats.byCategory)
+        .sort((a, b) => b[1] - a[1])
+        .map(([category, count]) => (
+          <div key={category} className="flex justify-between items-center">
+            <span className="text-sm text-gray-700">{category}</span>
+            <span className="text-sm font-semibold text-gray-900">{count}</span>
+          </div>
+        ))}
+    </div>
+  </div>
 
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
-                <div className="space-y-2">
-                  {Object.entries(stats.byRoom)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 10)
-                    .map(([room, count]) => (
-                      <div key={room} className="flex justify-between items-center">
-                        <span className="text-sm text-gray-700">{room}</span>
-                        <span className="text-sm font-semibold text-gray-900">{count}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
+  {/* Top Affected Rooms */}
+  <div className="bg-gray-50 rounded-lg p-4">
+    <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
+    <div className="space-y-2">
+      {Object.entries(stats.byRoom)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([room, count]) => (
+          <div key={room} className="flex justify-between items-center">
+            <span className="text-sm text-gray-700">{room}</span>
+            <span className="text-sm font-semibold text-gray-900">{count}</span>
+          </div>
+        ))}
+    </div>
+  </div>
+
+  {/* Top Users */}
+  <div className="bg-gray-50 rounded-lg p-4">
+    <h3 className="font-semibold text-gray-800 mb-3">Top Users (Most Complaints)</h3>
+    <div className="space-y-2">
+      {topUsers.length === 0 ? (
+        <p className="text-sm text-gray-500">No user data</p>
+      ) : (
+        topUsers.map((u) => (
+          <div key={u.user || 'unknown'} className="flex justify-between items-center">
+            <span className="text-sm text-gray-700">
+              {u.user || 'Unknown'}
+            </span>
+            <span className="text-sm font-semibold text-gray-900">
+              {u.total}
+            </span>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+</div>
+
 
             <div className="flex gap-4">
               <button
