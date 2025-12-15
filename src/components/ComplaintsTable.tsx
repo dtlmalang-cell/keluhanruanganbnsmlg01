@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { AlertCircle, Calendar, User, MapPin, Tag, FileText, UserCog, Edit2, X } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { AlertCircle, Calendar, User, MapPin, Tag, FileText, UserCog, Edit2, X, Filter, RotateCcw } from 'lucide-react';
 import { supabase, type Complaint } from '../lib/supabase';
 
 type ComplaintsTableProps = {
@@ -16,6 +16,16 @@ type EditFormData = {
   complaint: string;
   solution: string;
   admin_name: string;
+  pic: string;
+};
+
+type FilterState = {
+  date: string;
+  room: string;
+  category: string;
+  status: string;
+  user: string;
+  admin: string;
   pic: string;
 };
 
@@ -79,6 +89,15 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
   const [editFormData, setEditFormData] = useState<EditFormData | null>(null);
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    date: '',
+    room: '',
+    category: '',
+    status: '',
+    user: '',
+    admin: '',
+    pic: ''
+  });
 
   useEffect(() => {
     fetchComplaints();
@@ -110,6 +129,85 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
       day: 'numeric'
     });
   };
+
+  const getDateOnly = (dateString: string) => {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const filteredComplaints = useMemo(() => {
+    return complaints.filter((complaint) => {
+      if (filters.date && getDateOnly(complaint.date) !== filters.date) {
+        return false;
+      }
+
+      if (filters.room && complaint.room_number !== filters.room) {
+        return false;
+      }
+
+      if (filters.category && complaint.category !== filters.category) {
+        return false;
+      }
+
+      if (filters.status && complaint.status !== filters.status) {
+        return false;
+      }
+
+      if (filters.user && complaint.user_name) {
+        const userName = complaint.user_name.toLowerCase();
+        const searchUser = filters.user.toLowerCase();
+        if (!userName.includes(searchUser)) {
+          return false;
+        }
+      } else if (filters.user && !complaint.user_name) {
+        return false;
+      }
+
+      if (filters.admin && complaint.admin_name) {
+        const adminName = complaint.admin_name.toLowerCase();
+        const searchAdmin = filters.admin.toLowerCase();
+        if (!adminName.includes(searchAdmin)) {
+          return false;
+        }
+      } else if (filters.admin && !complaint.admin_name) {
+        return false;
+      }
+
+      if (filters.pic) {
+        const picValue = (complaint as any).pic;
+        if (picValue) {
+          const pic = picValue.toLowerCase();
+          const searchPic = filters.pic.toLowerCase();
+          if (!pic.includes(searchPic)) {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [complaints, filters]);
+
+  const handleResetFilters = () => {
+    setFilters({
+      date: '',
+      room: '',
+      category: '',
+      status: '',
+      user: '',
+      admin: '',
+      pic: ''
+    });
+  };
+
+  const activeFilterCount = useMemo(() => {
+    return Object.values(filters).filter(value => value !== '').length;
+  }, [filters]);
 
   const handleStatusChange = async (complaintId: string, newStatus: 'late' | 'ontime') => {
     setUpdatingStatus(complaintId);
@@ -215,13 +313,165 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
         <h2 className="text-2xl font-bold text-gray-800">Reported Issues</h2>
         <p className="text-sm text-gray-600 mt-1">
           {complaints.length} {complaints.length === 1 ? 'complaint' : 'complaints'} recorded
+          {activeFilterCount > 0 && (
+            <span className="ml-2 text-blue-600 font-medium">
+              ({filteredComplaints.length} filtered)
+            </span>
+          )}
         </p>
+      </div>
+
+      <div className="px-6 py-4 bg-white border-b border-gray-200">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-gray-600" />
+            <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
+            {activeFilterCount > 0 && (
+              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                {activeFilterCount} active
+              </span>
+            )}
+          </div>
+          {activeFilterCount > 0 && (
+            <button
+              onClick={handleResetFilters}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset All
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label htmlFor="filter-date" className="block text-xs font-medium text-gray-700 mb-1">
+              Date
+            </label>
+            <input
+              type="date"
+              id="filter-date"
+              value={filters.date}
+              onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="filter-room" className="block text-xs font-medium text-gray-700 mb-1">
+              Room
+            </label>
+            <select
+              id="filter-room"
+              value={filters.room}
+              onChange={(e) => setFilters({ ...filters, room: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Rooms</option>
+              {ROOM_NUMBERS.map((room) => (
+                <option key={room} value={room}>
+                  {room}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="filter-category" className="block text-xs font-medium text-gray-700 mb-1">
+              Category
+            </label>
+            <select
+              id="filter-category"
+              value={filters.category}
+              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Categories</option>
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="filter-status" className="block text-xs font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              id="filter-status"
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Status</option>
+              <option value="ontime">On Time</option>
+              <option value="late">Late</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="filter-user" className="block text-xs font-medium text-gray-700 mb-1">
+              User
+            </label>
+            <input
+              type="text"
+              id="filter-user"
+              value={filters.user}
+              onChange={(e) => setFilters({ ...filters, user: e.target.value })}
+              placeholder="Search user..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="filter-admin" className="block text-xs font-medium text-gray-700 mb-1">
+              Admin
+            </label>
+            <input
+              type="text"
+              id="filter-admin"
+              value={filters.admin}
+              onChange={(e) => setFilters({ ...filters, admin: e.target.value })}
+              placeholder="Search admin..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="filter-pic" className="block text-xs font-medium text-gray-700 mb-1">
+              PIC
+            </label>
+            <input
+              type="text"
+              id="filter-pic"
+              value={filters.pic}
+              onChange={(e) => setFilters({ ...filters, pic: e.target.value })}
+              placeholder="Search PIC..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
       </div>
 
       {complaints.length === 0 ? (
         <div className="p-12 text-center">
           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500">No complaints reported yet</p>
+        </div>
+      ) : filteredComplaints.length === 0 ? (
+        <div className="p-12 text-center">
+          <AlertCircle className="w-12 h-12 text-amber-300 mx-auto mb-3" />
+          <p className="text-gray-700 font-medium mb-2">No results match your filters</p>
+          <p className="text-sm text-gray-500 mb-4">Try adjusting or clearing your filters</p>
+          <button
+            onClick={handleResetFilters}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset Filters
+          </button>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -267,7 +517,7 @@ export default function ComplaintsTable({ refresh }: ComplaintsTableProps) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {complaints.map((complaint) => (
+              {filteredComplaints.map((complaint) => (
                 <tr key={complaint.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2 text-sm text-gray-900">
