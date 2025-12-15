@@ -1,11 +1,14 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { BarChart3, Download, FileText, Calendar, AlertCircle, Filter, RotateCcw, Search } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { 
+  BarChart3, Download, FileText, Calendar, AlertCircle, Filter, RotateCcw, 
+  ChevronDown, CheckSquare, Square, X 
+} from 'lucide-react';
 import { supabase, type Complaint } from '../lib/supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// Recharts (client only check)
+// Recharts
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts';
@@ -14,7 +17,7 @@ function isClient() {
   return typeof window !== 'undefined';
 }
 
-// ---- Constants (Saran: Pindahkan ke file constants.ts global nanti) ----
+// ---- Constants ----
 const CATEGORIES = ['AC', 'Audio', 'ATK', 'BINUSMAYA', 'Computer', 'Internet', 'LCD', 'Room', 'Software', 'TV', 'Wacom', 'Webcam', 'Etc'];
 const ROOM_NUMBERS = ['SB05', 'SB07', '101', '102-103', '114', '113 A', '113 B', '201', '202-203', '205', '206', '213', '214', '215', '305', '306', '307', '308', '309', '310', '311', '313', '314', '403', '405', '406', '407', '408', '409', '410', '411', '413'];
 
@@ -58,21 +61,36 @@ export default function Analytics() {
   // State Data Utama
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [rawComplaints, setRawComplaints] = useState<Complaint[]>([]); // Data mentah dari DB
+  const [rawComplaints, setRawComplaints] = useState<Complaint[]>([]); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // State Filter Tambahan
+  // UI State for Custom Dropdown
+  const [isRoomDropdownOpen, setIsRoomDropdownOpen] = useState(false);
+  const roomDropdownRef = useRef<HTMLDivElement>(null);
+
+  // State Filter (Updated: rooms is array)
   const [filters, setFilters] = useState({
-    room: '',
+    rooms: [] as string[], // Multi-select array
     category: '',
     status: '',
     pic: '',
-    user: '',  // Search text
-    admin: ''  // Search text
+    user: '',  
+    admin: ''  
   });
 
-  // --- 1. Fetching Data (Layer 1 Filter: Date Range) ---
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (roomDropdownRef.current && !roomDropdownRef.current.contains(event.target as Node)) {
+        setIsRoomDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // --- 1. Fetching Data ---
   useEffect(() => {
     if (startDate && endDate) void fetchRawData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,7 +100,6 @@ export default function Analytics() {
     try {
       setLoading(true);
       setError('');
-
       const { data, error: fetchError } = await supabase
         .from('complaints')
         .select('*')
@@ -91,7 +108,6 @@ export default function Analytics() {
         .order('date', { ascending: false });
 
       if (fetchError) throw fetchError;
-
       setRawComplaints((data as Complaint[]) || []);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
@@ -100,14 +116,16 @@ export default function Analytics() {
     }
   };
 
-  // --- 2. Client-Side Filtering (Layer 2 Filter: Attributes) ---
+  // --- 2. Filtering Logic (Updated for Multi-Room) ---
   const filteredComplaints = useMemo(() => {
     return rawComplaints.filter(item => {
-      // Helper for case-insensitive search
       const checkText = (field: string | null, search: string) => 
         (field || '').toLowerCase().includes(search.toLowerCase());
 
-      if (filters.room && item.room_number !== filters.room) return false;
+      // LOGIC BARU: Cek apakah item.room_number ada di dalam array filters.rooms
+      // Jika filters.rooms kosong, berarti "All Rooms" terpilih
+      if (filters.rooms.length > 0 && !filters.rooms.includes(item.room_number)) return false;
+
       if (filters.category && item.category !== filters.category) return false;
       if (filters.status && item.status !== filters.status) return false;
       if (filters.pic && !checkText((item as any).pic, filters.pic)) return false;
@@ -118,11 +136,10 @@ export default function Analytics() {
     });
   }, [rawComplaints, filters]);
 
-  // --- 3. Calculation Stats (Based on Filtered Data) ---
+  // --- 3. Stats Calculation ---
   const stats = useMemo(() => {
     const late = filteredComplaints.filter(c => (c as any)?.status === 'late').length;
     const ontime = filteredComplaints.filter(c => (c as any)?.status === 'ontime').length;
-
     const byCategory: Record<string, number> = {};
     const byRoom: Record<string, number> = {};
 
@@ -133,32 +150,20 @@ export default function Analytics() {
       byRoom[room] = (byRoom[room] || 0) + 1;
     });
 
-    return {
-      total: filteredComplaints.length,
-      late,
-      ontime,
-      byCategory,
-      byRoom
-    };
+    return { total: filteredComplaints.length, late, ontime, byCategory, byRoom };
   }, [filteredComplaints]);
 
-  // --- 4. Prepare Chart Data ---
+  // --- 4. Chart Data ---
   const statusPieData = useMemo(() => [
-    { name: 'Late', value: stats.late },
-    { name: 'On Time', value: stats.ontime },
-  ].filter(d => d.value > 0), [stats.late, stats.ontime]); // Filter > 0 agar pie chart tidak jelek
+    { name: 'Late', value: stats.late }, { name: 'On Time', value: stats.ontime },
+  ].filter(d => d.value > 0), [stats.late, stats.ontime]);
 
   const categoryPieData = useMemo(() => 
-    Object.entries(stats.byCategory)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value),
+    Object.entries(stats.byCategory).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
   [stats.byCategory]);
 
   const roomBarData = useMemo(() => 
-    Object.entries(stats.byRoom)
-      .map(([name, total]) => ({ name, total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10), // Top 10 only
+    Object.entries(stats.byRoom).map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total).slice(0, 10),
   [stats.byRoom]);
 
   const timeSeriesData = useMemo(() => {
@@ -177,7 +182,6 @@ export default function Analytics() {
       buckets[key] = 0;
     }
 
-    // Gunakan filteredComplaints, bukan rawComplaints
     filteredComplaints.forEach(c => {
       const d = safeDate((c as any)?.date);
       if (!d) return;
@@ -191,12 +195,26 @@ export default function Analytics() {
 
   // --- Handlers ---
   const handleResetFilters = () => {
-    setFilters({ room: '', category: '', status: '', pic: '', user: '', admin: '' });
+    setFilters({ rooms: [], category: '', status: '', pic: '', user: '', admin: '' });
   };
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const toggleRoom = (room: string) => {
+    setFilters(prev => {
+      const currentRooms = prev.rooms;
+      if (currentRooms.includes(room)) {
+        return { ...prev, rooms: currentRooms.filter(r => r !== room) };
+      } else {
+        return { ...prev, rooms: [...currentRooms, room] };
+      }
+    });
+  };
 
-  // --- Export Functions (Updated to use filteredComplaints) ---
+  // Helper untuk menghitung jumlah filter aktif (rooms dihitung 1 jika ada isinya)
+  const activeFilterCount = (filters.rooms.length > 0 ? 1 : 0) + 
+    (filters.category ? 1 : 0) + (filters.status ? 1 : 0) + 
+    (filters.pic ? 1 : 0) + (filters.user ? 1 : 0);
+
+  // --- Export Functions ---
   const s = (v: unknown) => String(v ?? '').replace(/\r?\n/g, ' ').trim();
   const cleanText = (v: unknown) => String(v ?? '').normalize('NFKC').replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -207,18 +225,17 @@ export default function Analytics() {
     doc.setFontSize(10);
     doc.text(`Date: ${startDate} to ${endDate}`, 14, 20);
     
-    // Info filter yang aktif
-    if (activeFilterCount > 0) {
-      const filterTxt = Object.entries(filters)
-        .filter(([_, v]) => v)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(', ');
-      doc.setTextColor(100);
-      doc.text(`Filters Applied: ${filterTxt}`, 14, 26);
-      doc.setTextColor(0);
+    // Tampilkan rooms yang dipilih di PDF
+    let roomText = "All Rooms";
+    if (filters.rooms.length > 0) {
+      roomText = filters.rooms.length > 5 
+        ? `${filters.rooms.length} rooms selected` 
+        : filters.rooms.join(', ');
     }
-
-    const startY = activeFilterCount > 0 ? 32 : 26;
+    
+    doc.setTextColor(100);
+    doc.text(`Rooms: ${roomText} | Category: ${filters.category || 'All'} | Status: ${filters.status || 'All'}`, 14, 26);
+    doc.setTextColor(0);
 
     const head = [['Date', 'User', 'Category', 'Room', 'Complaint', 'Admin', 'Solution', 'Status']];
     const body = filteredComplaints.map((c: any) => [
@@ -227,9 +244,8 @@ export default function Analytics() {
     ]);
 
     autoTable(doc, {
-      startY,
-      head,
-      body,
+      startY: 32,
+      head, body,
       styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
       headStyles: { fillColor: [37, 99, 235], textColor: 255 },
       columnStyles: {
@@ -243,13 +259,11 @@ export default function Analytics() {
   const exportToCSV = () => {
     const headers = ['Date', 'Time Issue', 'Time Repair', 'User', 'Category', 'Room', 'Issue', 'Complaint', 'Solution', 'Admin', 'PIC', 'Status'];
     const q = (v: unknown) => `"${cleanText(v).replace(/"/g, '""')}"`;
-    
     const rows = filteredComplaints.map((c: any) => [
       q(c?.date), q(c?.time_of_issue), q(c?.time_of_repair), q(c?.user_name),
       q(c?.category), q(c?.room_number), q(c?.issue), q(c?.complaint),
       q(c?.solution ?? c?.resolution), q(c?.admin_name), q((c as any)?.pic), q(c?.status),
     ]);
-    
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -263,13 +277,12 @@ export default function Analytics() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
-        {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <BarChart3 className="w-6 h-6 text-blue-600" />
           <h2 className="text-2xl font-bold text-gray-800">Analytics & Reports</h2>
         </div>
 
-        {/* PRIMARY CONTROL: Date Range */}
+        {/* Date Range Control */}
         <div className="grid md:grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-100">
           <div>
             <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
@@ -281,7 +294,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* SECONDARY CONTROL: Filters (Only Show if Data Exists) */}
+        {/* Filters */}
         {!loading && startDate && endDate && rawComplaints.length > 0 && (
           <div className="mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
              <div className="flex items-center justify-between mb-3">
@@ -299,11 +312,54 @@ export default function Analytics() {
                 )}
              </div>
              
-             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <select className="text-sm border-gray-300 rounded-md shadow-sm" value={filters.room} onChange={e => setFilters({...filters, room: e.target.value})}>
-                   <option value="">All Rooms</option>
-                   {ROOM_NUMBERS.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                
+                {/* --- MULTI-SELECT ROOM DROPDOWN START --- */}
+                <div className="relative" ref={roomDropdownRef}>
+                  <button 
+                    onClick={() => setIsRoomDropdownOpen(!isRoomDropdownOpen)}
+                    className="w-full text-left px-3 py-2 text-sm border border-gray-300 rounded-md bg-white flex items-center justify-between focus:ring-2 focus:ring-blue-500"
+                  >
+                    <span className="truncate block">
+                      {filters.rooms.length === 0 
+                        ? 'All Rooms' 
+                        : `${filters.rooms.length} Room${filters.rooms.length > 1 ? 's' : ''} Selected`}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </button>
+
+                  {isRoomDropdownOpen && (
+                    <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+                         <div className="flex justify-between items-center">
+                            <span className="text-xs font-semibold text-gray-500">Select Rooms</span>
+                            {filters.rooms.length > 0 && (
+                               <button onClick={() => setFilters({...filters, rooms: []})} className="text-xs text-red-500 hover:text-red-700">Clear</button>
+                            )}
+                         </div>
+                      </div>
+                      <div className="p-1">
+                        {ROOM_NUMBERS.map(room => (
+                          <div 
+                            key={room} 
+                            onClick={() => toggleRoom(room)}
+                            className="flex items-center gap-2 px-2 py-2 hover:bg-blue-50 cursor-pointer rounded-md"
+                          >
+                            {filters.rooms.includes(room) ? (
+                              <CheckSquare className="w-4 h-4 text-blue-600" />
+                            ) : (
+                              <Square className="w-4 h-4 text-gray-300" />
+                            )}
+                            <span className={`text-sm ${filters.rooms.includes(room) ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
+                              {room}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* --- MULTI-SELECT ROOM DROPDOWN END --- */}
 
                 <select className="text-sm border-gray-300 rounded-md shadow-sm" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}>
                    <option value="">All Categories</option>
@@ -317,11 +373,10 @@ export default function Analytics() {
                 </select>
 
                 <div className="relative">
-                   <input type="text" placeholder="Filter PIC..." className="w-full pl-2 pr-2 py-1.5 text-sm border border-gray-300 rounded-md" value={filters.pic} onChange={e => setFilters({...filters, pic: e.target.value})} />
-                </div>
-                
-                 <div className="relative">
-                   <input type="text" placeholder="Filter User..." className="w-full pl-2 pr-2 py-1.5 text-sm border border-gray-300 rounded-md" value={filters.user} onChange={e => setFilters({...filters, user: e.target.value})} />
+                   <input type="text" placeholder="Filter PIC or User..." className="w-full pl-2 pr-2 py-2 text-sm border border-gray-300 rounded-md" 
+                     value={filters.pic || filters.user} 
+                     onChange={e => setFilters({...filters, pic: e.target.value, user: e.target.value})} // Shortcut: update both for simpler UI
+                   />
                 </div>
              </div>
           </div>
@@ -364,7 +419,6 @@ export default function Analytics() {
 
             {isClient() && (
               <>
-                {/* Charts Row 1: Pies & Bars */}
                 <div className="grid lg:grid-cols-3 gap-6 mb-6">
                   {/* Status Pie */}
                   <div className="bg-white rounded-lg border p-4">
@@ -381,7 +435,6 @@ export default function Analytics() {
                       </ResponsiveContainer>
                     </div>
                   </div>
-
                   {/* Category Pie */}
                   <div className="bg-white rounded-lg border p-4">
                     <h3 className="font-semibold text-gray-800 mb-3">Issues by Category</h3>
@@ -397,7 +450,6 @@ export default function Analytics() {
                       </ResponsiveContainer>
                     </div>
                   </div>
-
                   {/* Top Rooms Bar */}
                   <div className="bg-white rounded-lg border p-4">
                     <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
@@ -414,8 +466,7 @@ export default function Analytics() {
                     </div>
                   </div>
                 </div>
-
-                {/* Line Chart: Daily Trend */}
+                {/* Line Chart */}
                 <div className="bg-white rounded-lg border p-4 mb-6">
                   <h3 className="font-semibold text-gray-800 mb-3">Daily Issue Trend</h3>
                   <div className="h-72">
@@ -433,7 +484,6 @@ export default function Analytics() {
               </>
             )}
 
-            {/* List Views & Exports */}
             <div className="flex gap-4 mb-8">
               <button onClick={exportToPDF} className="flex-1 bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2">
                 <FileText className="w-5 h-5" /> Export PDF
@@ -445,7 +495,6 @@ export default function Analytics() {
           </>
         )}
 
-        {/* Empty States */}
         {!loading && startDate && endDate && rawComplaints.length > 0 && filteredComplaints.length === 0 && (
            <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
              <Filter className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -453,14 +502,12 @@ export default function Analytics() {
              <button onClick={handleResetFilters} className="mt-2 text-blue-600 hover:underline text-sm">Clear filters</button>
            </div>
         )}
-
         {!loading && startDate && endDate && rawComplaints.length === 0 && (
           <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">No data recorded in this date range</p>
           </div>
         )}
-
         {(!startDate || !endDate) && (
           <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -469,7 +516,7 @@ export default function Analytics() {
         )}
       </div>
 
-      {/* DETAILED TABLE (Shows Filtered Data) */}
+      {/* DETAILED TABLE */}
       {filteredComplaints.length > 0 && (
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
