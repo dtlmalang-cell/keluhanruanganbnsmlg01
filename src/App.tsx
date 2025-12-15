@@ -79,10 +79,11 @@ function App() {
             {/* Form laporan (kiri) */}
             <ComplaintForm onSuccess={handleComplaintSuccess} />
 
-            {/* Informasi akun dan bantuan (kanan) */}
+{/* Informasi akun dan bantuan (kanan) */}
             <div className="bg-white rounded-lg p-6 shadow-md">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Account & Help</h2>
 
+              {/* User Info */}
               <div className="mb-4">
                 <p className="text-sm text-gray-500">Logged in as</p>
                 <p className="text-base font-medium text-gray-900">
@@ -90,10 +91,35 @@ function App() {
                 </p>
               </div>
 
+              {/* SECTION BARU: Update Log */}
+              <div className="border-t pt-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                   <p className="text-sm font-medium text-gray-800">Update Terbaru</p>
+                   <span className="bg-green-100 text-green-800 text-[10px] font-medium px-2 py-0.5 rounded-full">New</span>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                  <ul className="text-xs text-gray-700 space-y-2 list-disc list-inside">
+                    <li>
+                      <span className="font-semibold text-blue-900">Advanced Filter:</span> Cari data berdasarkan Tanggal, Room, Kategori, Status, & User.
+                    </li>
+                    <li>
+                      <span className="font-semibold text-blue-900">Smart Analytics:</span> Bandingkan beberapa ruangan sekaligus & grafik otomatis.
+                    </li>
+                    <li>
+                      <span className="font-semibold text-blue-900">WYSIWYG Export:</span> Download PDF/CSV sesuai dengan filter yang Anda lihat.
+                    </li>
+                    <li>
+                      <span className="font-semibold text-blue-900">Auto Status:</span> Perbaikan di bawah 20 menit otomatis "On Time".
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Existing Help Info */}
               <div className="border-t pt-4">
-                <p className="text-sm font-medium text-gray-800 mb-2">Informasi</p>
+                <p className="text-sm font-medium text-gray-800 mb-2">Informasi Penting</p>
                 <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
-                  <li>Jangan menggunakan emoticon</li>
+                  <li>Jangan menggunakan emoticon pada input teks.</li>
                   <li>
                     Jika ada kendala dan ingin menghapus data silakan hubungi{' '}
                     <a
