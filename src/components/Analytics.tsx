@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   BarChart3, Download, FileText, Calendar, AlertCircle, Filter, RotateCcw, 
-  ChevronDown, CheckSquare, Square, X 
+  ChevronDown, CheckSquare, Square, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { supabase, type Complaint } from '../lib/supabase';
 import jsPDF from 'jspdf';
@@ -65,13 +65,17 @@ export default function Analytics() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // UI State for Custom Dropdown
+  // UI State
   const [isRoomDropdownOpen, setIsRoomDropdownOpen] = useState(false);
   const roomDropdownRef = useRef<HTMLDivElement>(null);
 
-  // State Filter (Updated: rooms is array)
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  // State Filter
   const [filters, setFilters] = useState({
-    rooms: [] as string[], // Multi-select array
+    rooms: [] as string[], 
     category: '',
     status: '',
     pic: '',
@@ -79,7 +83,7 @@ export default function Analytics() {
     admin: ''  
   });
 
-  // Close dropdown when clicking outside
+  // Close dropdown logic
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (roomDropdownRef.current && !roomDropdownRef.current.contains(event.target as Node)) {
@@ -116,16 +120,13 @@ export default function Analytics() {
     }
   };
 
-  // --- 2. Filtering Logic (Updated for Multi-Room) ---
+  // --- 2. Filtering Logic ---
   const filteredComplaints = useMemo(() => {
     return rawComplaints.filter(item => {
       const checkText = (field: string | null, search: string) => 
         (field || '').toLowerCase().includes(search.toLowerCase());
 
-      // LOGIC BARU: Cek apakah item.room_number ada di dalam array filters.rooms
-      // Jika filters.rooms kosong, berarti "All Rooms" terpilih
       if (filters.rooms.length > 0 && !filters.rooms.includes(item.room_number)) return false;
-
       if (filters.category && item.category !== filters.category) return false;
       if (filters.status && item.status !== filters.status) return false;
       if (filters.pic && !checkText((item as any).pic, filters.pic)) return false;
@@ -136,7 +137,18 @@ export default function Analytics() {
     });
   }, [rawComplaints, filters]);
 
-  // --- 3. Stats Calculation ---
+  // --- 3. Pagination Logic (Table Only) ---
+  // Reset page ke 1 jika filter atau tanggal berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, startDate, endDate]);
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentTableData = filteredComplaints.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredComplaints.length / itemsPerPage);
+
+  // --- 4. Stats Calculation (Uses ALL Filtered Data) ---
   const stats = useMemo(() => {
     const late = filteredComplaints.filter(c => (c as any)?.status === 'late').length;
     const ontime = filteredComplaints.filter(c => (c as any)?.status === 'ontime').length;
@@ -153,7 +165,7 @@ export default function Analytics() {
     return { total: filteredComplaints.length, late, ontime, byCategory, byRoom };
   }, [filteredComplaints]);
 
-  // --- 4. Chart Data ---
+  // --- 5. Chart Data (Uses ALL Filtered Data) ---
   const statusPieData = useMemo(() => [
     { name: 'Late', value: stats.late }, { name: 'On Time', value: stats.ontime },
   ].filter(d => d.value > 0), [stats.late, stats.ontime]);
@@ -209,12 +221,11 @@ export default function Analytics() {
     });
   };
 
-  // Helper untuk menghitung jumlah filter aktif (rooms dihitung 1 jika ada isinya)
   const activeFilterCount = (filters.rooms.length > 0 ? 1 : 0) + 
     (filters.category ? 1 : 0) + (filters.status ? 1 : 0) + 
     (filters.pic ? 1 : 0) + (filters.user ? 1 : 0);
 
-  // --- Export Functions ---
+  // --- Export Functions (Export ALL filtered data, not just current page) ---
   const s = (v: unknown) => String(v ?? '').replace(/\r?\n/g, ' ').trim();
   const cleanText = (v: unknown) => String(v ?? '').normalize('NFKC').replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -225,12 +236,9 @@ export default function Analytics() {
     doc.setFontSize(10);
     doc.text(`Date: ${startDate} to ${endDate}`, 14, 20);
     
-    // Tampilkan rooms yang dipilih di PDF
     let roomText = "All Rooms";
     if (filters.rooms.length > 0) {
-      roomText = filters.rooms.length > 5 
-        ? `${filters.rooms.length} rooms selected` 
-        : filters.rooms.join(', ');
+      roomText = filters.rooms.length > 5 ? `${filters.rooms.length} rooms selected` : filters.rooms.join(', ');
     }
     
     doc.setTextColor(100);
@@ -282,7 +290,7 @@ export default function Analytics() {
           <h2 className="text-2xl font-bold text-gray-800">Analytics & Reports</h2>
         </div>
 
-        {/* Date Range Control */}
+        {/* Date Range */}
         <div className="grid md:grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-100">
           <div>
             <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
@@ -313,53 +321,29 @@ export default function Analytics() {
              </div>
              
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                
-                {/* --- MULTI-SELECT ROOM DROPDOWN START --- */}
+                {/* Room Multi-Select */}
                 <div className="relative" ref={roomDropdownRef}>
-                  <button 
-                    onClick={() => setIsRoomDropdownOpen(!isRoomDropdownOpen)}
-                    className="w-full text-left px-3 py-2 text-sm border border-gray-300 rounded-md bg-white flex items-center justify-between focus:ring-2 focus:ring-blue-500"
-                  >
-                    <span className="truncate block">
-                      {filters.rooms.length === 0 
-                        ? 'All Rooms' 
-                        : `${filters.rooms.length} Room${filters.rooms.length > 1 ? 's' : ''} Selected`}
-                    </span>
+                  <button onClick={() => setIsRoomDropdownOpen(!isRoomDropdownOpen)} className="w-full text-left px-3 py-2 text-sm border border-gray-300 rounded-md bg-white flex items-center justify-between focus:ring-2 focus:ring-blue-500">
+                    <span className="truncate block">{filters.rooms.length === 0 ? 'All Rooms' : `${filters.rooms.length} Room${filters.rooms.length > 1 ? 's' : ''} Selected`}</span>
                     <ChevronDown className="w-4 h-4 text-gray-500" />
                   </button>
-
                   {isRoomDropdownOpen && (
                     <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
-                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-semibold text-gray-500">Select Rooms</span>
-                            {filters.rooms.length > 0 && (
-                               <button onClick={() => setFilters({...filters, rooms: []})} className="text-xs text-red-500 hover:text-red-700">Clear</button>
-                            )}
-                         </div>
+                      <div className="p-2 border-b border-gray-100 sticky top-0 bg-white flex justify-between items-center">
+                         <span className="text-xs font-semibold text-gray-500">Select Rooms</span>
+                         {filters.rooms.length > 0 && (<button onClick={() => setFilters({...filters, rooms: []})} className="text-xs text-red-500 hover:text-red-700">Clear</button>)}
                       </div>
                       <div className="p-1">
                         {ROOM_NUMBERS.map(room => (
-                          <div 
-                            key={room} 
-                            onClick={() => toggleRoom(room)}
-                            className="flex items-center gap-2 px-2 py-2 hover:bg-blue-50 cursor-pointer rounded-md"
-                          >
-                            {filters.rooms.includes(room) ? (
-                              <CheckSquare className="w-4 h-4 text-blue-600" />
-                            ) : (
-                              <Square className="w-4 h-4 text-gray-300" />
-                            )}
-                            <span className={`text-sm ${filters.rooms.includes(room) ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
-                              {room}
-                            </span>
+                          <div key={room} onClick={() => toggleRoom(room)} className="flex items-center gap-2 px-2 py-2 hover:bg-blue-50 cursor-pointer rounded-md">
+                            {filters.rooms.includes(room) ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4 text-gray-300" />}
+                            <span className={`text-sm ${filters.rooms.includes(room) ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>{room}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
                 </div>
-                {/* --- MULTI-SELECT ROOM DROPDOWN END --- */}
 
                 <select className="text-sm border-gray-300 rounded-md shadow-sm" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}>
                    <option value="">All Categories</option>
@@ -373,156 +357,76 @@ export default function Analytics() {
                 </select>
 
                 <div className="relative">
-                   <input type="text" placeholder="Filter PIC or User..." className="w-full pl-2 pr-2 py-2 text-sm border border-gray-300 rounded-md" 
-                     value={filters.pic || filters.user} 
-                     onChange={e => setFilters({...filters, pic: e.target.value, user: e.target.value})} // Shortcut: update both for simpler UI
-                   />
+                   <input type="text" placeholder="Filter PIC or User..." className="w-full pl-2 pr-2 py-2 text-sm border border-gray-300 rounded-md" value={filters.pic || filters.user} onChange={e => setFilters({...filters, pic: e.target.value, user: e.target.value})} />
                 </div>
              </div>
           </div>
         )}
 
-        {/* Error Handling */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-red-800 text-sm">{error}</p>
-          </div>
-        )}
+        {error && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm flex gap-3"><AlertCircle className="w-5 h-5 text-red-600" />{error}</div>}
+        {loading && <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div><span className="ml-3 text-gray-600">Analyzing data...</span></div>}
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">Analyzing data...</span>
-          </div>
-        )}
-
-        {/* DASHBOARD CONTENT */}
         {!loading && startDate && endDate && filteredComplaints.length > 0 && (
           <>
-            {/* KPI Cards */}
+            {/* KPI & Charts (Code omitted for brevity, same as before) */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <p className="text-sm text-blue-600 font-medium mb-1">Total Issues</p>
-                <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
-              </div>
-              <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                <p className="text-sm text-amber-600 font-medium mb-1">Late</p>
-                <p className="text-3xl font-bold text-amber-900">{stats.late}</p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                <p className="text-sm text-green-600 font-medium mb-1">On Time</p>
-                <p className="text-3xl font-bold text-green-900">{stats.ontime}</p>
-              </div>
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200"><p className="text-sm text-blue-600 font-medium mb-1">Total Issues</p><p className="text-3xl font-bold text-blue-900">{stats.total}</p></div>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-200"><p className="text-sm text-amber-600 font-medium mb-1">Late</p><p className="text-3xl font-bold text-amber-900">{stats.late}</p></div>
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200"><p className="text-sm text-green-600 font-medium mb-1">On Time</p><p className="text-3xl font-bold text-green-900">{stats.ontime}</p></div>
             </div>
 
             {isClient() && (
               <>
-                <div className="grid lg:grid-cols-3 gap-6 mb-6">
-                  {/* Status Pie */}
-                  <div className="bg-white rounded-lg border p-4">
-                    <h3 className="font-semibold text-gray-800 mb-3">Status Distribution</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Tooltip />
-                          <Legend verticalAlign="bottom" height={24} />
-                          <Pie data={statusPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                            {statusPieData.map((_, i) => <Cell key={i} fill={i === 0 ? '#ef4444' : '#16a34a'} />)}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
+                 <div className="grid lg:grid-cols-3 gap-6 mb-6">
+                    <div className="bg-white rounded-lg border p-4">
+                       <h3 className="font-semibold text-gray-800 mb-3">Status Distribution</h3>
+                       <div className="h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Tooltip /><Legend verticalAlign="bottom" height={24} /><Pie data={statusPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>{statusPieData.map((_, i) => <Cell key={i} fill={i === 0 ? '#ef4444' : '#16a34a'} />)}</Pie></PieChart></ResponsiveContainer></div>
                     </div>
-                  </div>
-                  {/* Category Pie */}
-                  <div className="bg-white rounded-lg border p-4">
-                    <h3 className="font-semibold text-gray-800 mb-3">Issues by Category</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Tooltip />
-                          <Legend verticalAlign="bottom" height={24} />
-                          <Pie data={categoryPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} paddingAngle={2}>
-                            {categoryPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
+                    <div className="bg-white rounded-lg border p-4">
+                       <h3 className="font-semibold text-gray-800 mb-3">Issues by Category</h3>
+                       <div className="h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Tooltip /><Legend verticalAlign="bottom" height={24} /><Pie data={categoryPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} paddingAngle={2}>{categoryPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}</Pie></PieChart></ResponsiveContainer></div>
                     </div>
-                  </div>
-                  {/* Top Rooms Bar */}
-                  <div className="bg-white rounded-lg border p-4">
-                    <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={roomBarData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" interval={0} angle={-15} textAnchor="end" height={50} tick={{fontSize: 12}} />
-                          <YAxis allowDecimals={false} />
-                          <Tooltip cursor={{fill: '#f3f4f6'}} />
-                          <Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="bg-white rounded-lg border p-4">
+                       <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
+                       <div className="h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={roomBarData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" interval={0} angle={-15} textAnchor="end" height={50} tick={{fontSize: 12}} /><YAxis allowDecimals={false} /><Tooltip cursor={{fill: '#f3f4f6'}} /><Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div>
                     </div>
-                  </div>
-                </div>
-                {/* Line Chart */}
-                <div className="bg-white rounded-lg border p-4 mb-6">
-                  <h3 className="font-semibold text-gray-800 mb-3">Daily Issue Trend</h3>
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={timeSeriesData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="day" tickLine={false} />
-                        <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+                 </div>
+                 <div className="bg-white rounded-lg border p-4 mb-6">
+                    <h3 className="font-semibold text-gray-800 mb-3">Daily Issue Trend</h3>
+                    <div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={timeSeriesData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="day" tickLine={false} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} /><Tooltip /><Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} /></LineChart></ResponsiveContainer></div>
+                 </div>
               </>
             )}
 
             <div className="flex gap-4 mb-8">
-              <button onClick={exportToPDF} className="flex-1 bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2">
-                <FileText className="w-5 h-5" /> Export PDF
-              </button>
-              <button onClick={exportToCSV} className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-                <Download className="w-5 h-5" /> Export CSV
-              </button>
+              <button onClick={exportToPDF} className="flex-1 bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"><FileText className="w-5 h-5" /> Export PDF</button>
+              <button onClick={exportToCSV} className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"><Download className="w-5 h-5" /> Export CSV</button>
             </div>
           </>
         )}
 
+        {/* Empty States */}
         {!loading && startDate && endDate && rawComplaints.length > 0 && filteredComplaints.length === 0 && (
-           <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-             <Filter className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-             <p className="text-gray-600 font-medium">No issues match your current filters</p>
-             <button onClick={handleResetFilters} className="mt-2 text-blue-600 hover:underline text-sm">Clear filters</button>
-           </div>
+           <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300"><Filter className="w-12 h-12 text-gray-300 mx-auto mb-3" /><p className="text-gray-600 font-medium">No issues match your current filters</p><button onClick={handleResetFilters} className="mt-2 text-blue-600 hover:underline text-sm">Clear filters</button></div>
         )}
         {!loading && startDate && endDate && rawComplaints.length === 0 && (
-          <div className="text-center py-12">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No data recorded in this date range</p>
-          </div>
+          <div className="text-center py-12"><Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No data recorded in this date range</p></div>
         )}
         {(!startDate || !endDate) && (
-          <div className="text-center py-12">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">Please select a Start and End date to view analytics</p>
-          </div>
+          <div className="text-center py-12"><Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">Please select a Start and End date to view analytics</p></div>
         )}
       </div>
 
-      {/* DETAILED TABLE */}
+      {/* DETAILED REPORT TABLE (WITH PAGINATION) */}
       {filteredComplaints.length > 0 && (
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
           <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
             <h3 className="text-xl font-bold text-gray-800">Detailed Report</h3>
-            <span className="text-sm text-gray-500">{filteredComplaints.length} records</span>
+            <span className="text-sm text-gray-500">
+               Showing {Math.min(indexOfFirstItem + 1, filteredComplaints.length)} - {Math.min(indexOfLastItem, filteredComplaints.length)} of {filteredComplaints.length} records
+            </span>
           </div>
+          
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -538,7 +442,7 @@ export default function Analytics() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredComplaints.map((c: any) => (
+                {currentTableData.map((c: any) => (
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{fmtDateShort(c?.date)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fmtTime(c?.time_of_issue)}</td>
@@ -559,6 +463,31 @@ export default function Analytics() {
               </tbody>
             </table>
           </div>
+
+          {/* PAGINATION CONTROLS */}
+          {filteredComplaints.length > 0 && (
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                Page <span className="font-medium text-gray-900">{currentPage}</span> of <span className="font-medium text-gray-900">{totalPages}</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white bg-white shadow-sm transition-colors text-gray-700"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white bg-white shadow-sm transition-colors text-gray-700"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
