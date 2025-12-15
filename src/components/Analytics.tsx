@@ -1,33 +1,24 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { BarChart3, Download, FileText, Calendar, AlertCircle } from 'lucide-react';
+import { BarChart3, Download, FileText, Calendar, AlertCircle, Filter, RotateCcw, Search } from 'lucide-react';
 import { supabase, type Complaint } from '../lib/supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-
 // Recharts (client only check)
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Legend,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts';
 
 function isClient() {
   return typeof window !== 'undefined';
 }
 
-// ---- utils aman ----
+// ---- Constants (Saran: Pindahkan ke file constants.ts global nanti) ----
+const CATEGORIES = ['AC', 'Audio', 'ATK', 'BINUSMAYA', 'Computer', 'Internet', 'LCD', 'Room', 'Software', 'TV', 'Wacom', 'Webcam', 'Etc'];
+const ROOM_NUMBERS = ['SB05', 'SB07', '101', '102-103', '114', '113 A', '113 B', '201', '202-203', '205', '206', '213', '214', '215', '305', '306', '307', '308', '309', '310', '311', '313', '314', '403', '405', '406', '407', '408', '409', '410', '411', '413'];
+
+// ---- Utils ----
 function safeDate(input: any): Date | null {
   const d = new Date(input);
   return isNaN(d.getTime()) ? null : d;
@@ -37,7 +28,6 @@ function fmtDateShort(input: any) {
   return d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
 }
 function toYYYYMMDD(date: Date) {
-  // gunakan zona lokal untuk stabilitas label
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -48,15 +38,12 @@ function fmtAxisDay(yyyyMMdd: string) {
   const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
 }
-
-// Format "HH:MM" dari "HH:MM(:SS)?"
 const fmtTime = (t?: string | null) => {
   if (!t) return '-';
   const m = /^(\d{2}):(\d{2})/.exec(t);
   return m ? `${m[1]}:${m[2]}` : t;
 };
 
-// Warna badge PIC
 const PIC_COLORS: Record<string, string> = {
   DTL: 'bg-indigo-100 text-indigo-800',
   IT:  'bg-emerald-100 text-emerald-800',
@@ -65,27 +52,33 @@ const PIC_COLORS: Record<string, string> = {
   ME:  'bg-sky-100 text-sky-800',
 };
 
+const PIE_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#0ea5e9', '#a855f7', '#14b8a6'];
 
 export default function Analytics() {
+  // State Data Utama
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [filteredComplaints, setFilteredComplaints] = useState<Complaint[]>([]);
+  const [rawComplaints, setRawComplaints] = useState<Complaint[]>([]); // Data mentah dari DB
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState({
-    total: 0,
-    late: 0,
-    ontime: 0,
-    byCategory: {} as Record<string, number>,
-    byRoom: {} as Record<string, number>,
+
+  // State Filter Tambahan
+  const [filters, setFilters] = useState({
+    room: '',
+    category: '',
+    status: '',
+    pic: '',
+    user: '',  // Search text
+    admin: ''  // Search text
   });
 
+  // --- 1. Fetching Data (Layer 1 Filter: Date Range) ---
   useEffect(() => {
-    if (startDate && endDate) void fetchFilteredData();
+    if (startDate && endDate) void fetchRawData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
-  const fetchFilteredData = async () => {
+  const fetchRawData = async () => {
     try {
       setLoading(true);
       setError('');
@@ -99,9 +92,7 @@ export default function Analytics() {
 
       if (fetchError) throw fetchError;
 
-      const rows = (data as Complaint[]) || [];
-      setFilteredComplaints(rows);
-      calculateStats(rows);
+      setRawComplaints((data as Complaint[]) || []);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -109,61 +100,72 @@ export default function Analytics() {
     }
   };
 
-  const calculateStats = (complaints: Complaint[]) => {
-    const late = complaints.filter(c => (c as any)?.status === 'late').length;
-    const ontime = complaints.filter(c => (c as any)?.status === 'ontime').length;
+  // --- 2. Client-Side Filtering (Layer 2 Filter: Attributes) ---
+  const filteredComplaints = useMemo(() => {
+    return rawComplaints.filter(item => {
+      // Helper for case-insensitive search
+      const checkText = (field: string | null, search: string) => 
+        (field || '').toLowerCase().includes(search.toLowerCase());
+
+      if (filters.room && item.room_number !== filters.room) return false;
+      if (filters.category && item.category !== filters.category) return false;
+      if (filters.status && item.status !== filters.status) return false;
+      if (filters.pic && !checkText((item as any).pic, filters.pic)) return false;
+      if (filters.user && !checkText(item.user_name, filters.user)) return false;
+      if (filters.admin && !checkText(item.admin_name, filters.admin)) return false;
+
+      return true;
+    });
+  }, [rawComplaints, filters]);
+
+  // --- 3. Calculation Stats (Based on Filtered Data) ---
+  const stats = useMemo(() => {
+    const late = filteredComplaints.filter(c => (c as any)?.status === 'late').length;
+    const ontime = filteredComplaints.filter(c => (c as any)?.status === 'ontime').length;
 
     const byCategory: Record<string, number> = {};
     const byRoom: Record<string, number> = {};
 
-    complaints.forEach(c => {
+    filteredComplaints.forEach(c => {
       const cat = (c as any)?.category ?? 'Unknown';
       const room = (c as any)?.room_number ?? 'Unknown';
       byCategory[cat] = (byCategory[cat] || 0) + 1;
       byRoom[room] = (byRoom[room] || 0) + 1;
     });
 
-    setStats({
-      total: complaints.length,
+    return {
+      total: filteredComplaints.length,
       late,
       ontime,
       byCategory,
-      byRoom,
-    });
-  };
+      byRoom
+    };
+  }, [filteredComplaints]);
 
-  // ---- data untuk chart ----
-  const statusPieData = useMemo(
-    () => [
-      { name: 'late', value: stats.late },
-      { name: 'ontime', value: stats.ontime },
-    ],
-    [stats.late, stats.ontime]
-  );
+  // --- 4. Prepare Chart Data ---
+  const statusPieData = useMemo(() => [
+    { name: 'Late', value: stats.late },
+    { name: 'On Time', value: stats.ontime },
+  ].filter(d => d.value > 0), [stats.late, stats.ontime]); // Filter > 0 agar pie chart tidak jelek
 
-  const categoryPieData = useMemo(
-    () =>
-      Object.entries(stats.byCategory)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value),
-    [stats.byCategory]
-  );
+  const categoryPieData = useMemo(() => 
+    Object.entries(stats.byCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
+  [stats.byCategory]);
 
-  const roomBarData = useMemo(
-    () =>
-      Object.entries(stats.byRoom)
-        .map(([name, total]) => ({ name, total }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 10),
-    [stats.byRoom]
-  );
+  const roomBarData = useMemo(() => 
+    Object.entries(stats.byRoom)
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10), // Top 10 only
+  [stats.byRoom]);
 
   const timeSeriesData = useMemo(() => {
     if (!startDate || !endDate) return [];
     const start = safeDate(startDate);
     const end = safeDate(endDate);
     if (!start || !end) return [];
-
     start.setHours(0, 0, 0, 0);
     end.setHours(0, 0, 0, 0);
 
@@ -175,6 +177,7 @@ export default function Analytics() {
       buckets[key] = 0;
     }
 
+    // Gunakan filteredComplaints, bukan rawComplaints
     filteredComplaints.forEach(c => {
       const d = safeDate((c as any)?.date);
       if (!d) return;
@@ -186,179 +189,145 @@ export default function Analytics() {
     return keys.map(k => ({ day: fmtAxisDay(k), total: buckets[k] || 0 }));
   }, [filteredComplaints, startDate, endDate]);
 
-  
-  const PIE_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#0ea5e9', '#a855f7', '#14b8a6'];
+  // --- Handlers ---
+  const handleResetFilters = () => {
+    setFilters({ room: '', category: '', status: '', pic: '', user: '', admin: '' });
+  };
 
-  // ---- export aman ----
-const exportToPDF = () => {
-  // Gunakan landscape agar kolom panjang muat
-  const doc = new jsPDF({ orientation: 'landscape' });
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
-  // Header
-  doc.setFontSize(16);
-  doc.text('Classroom Issues Report', 14, 14);
-  doc.setFontSize(10);
-  doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 20);
-
-  // Header kolom sesuai urutan yang diminta
-  const head = [['Date', 'User', 'Category', 'Room', 'Complaint', 'Admin', 'Solution', 'Status']];
-
-  // Helper: sanitisasi string agar aman untuk PDF (hapus newline berlebih)
+  // --- Export Functions (Updated to use filteredComplaints) ---
   const s = (v: unknown) => String(v ?? '').replace(/\r?\n/g, ' ').trim();
+  const cleanText = (v: unknown) => String(v ?? '').normalize('NFKC').replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ').replace(/\s+/g, ' ').trim();
 
-  // Body data sesuai urutan
-  const body = filteredComplaints.map((c: any) => [
-    fmtDateShort(c?.date),              // Date
-    s(c?.user_name),                    // User
-    s(c?.category),                     // Category
-    s(c?.room_number),                  // Room
-    s(c?.complaint),                    // Complaint
-    s(c?.admin_name),                   // Admin
-    s(c?.solution ?? c?.resolution),    // Solution (fallback ke resolution)
-    s(c?.status),                       // Status
-  ]);
+  const exportToPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    doc.setFontSize(16);
+    doc.text('Filtered Issues Report', 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Date: ${startDate} to ${endDate}`, 14, 20);
+    
+    // Info filter yang aktif
+    if (activeFilterCount > 0) {
+      const filterTxt = Object.entries(filters)
+        .filter(([_, v]) => v)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ');
+      doc.setTextColor(100);
+      doc.text(`Filters Applied: ${filterTxt}`, 14, 26);
+      doc.setTextColor(0);
+    }
 
-  autoTable(doc, {
-    startY: 26,
-    head,
-    body,
-    // Gaya umum
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-      overflow: 'linebreak', // bungkus teks panjang
-    },
-    headStyles: {
-      fillColor: [37, 99, 235], // biru
-      textColor: 255,
-      halign: 'left',
-    },
-    // Lebar kolom (atur agar kolom panjang punya ruang)
-    columnStyles: {
-      0: { cellWidth: 26 },  // Date
-      1: { cellWidth: 36 },  // User
-      2: { cellWidth: 30 },  // Category
-      3: { cellWidth: 15 },  // Room
-      4: { cellWidth: 60 },  // Complaint (panjang)
-      5: { cellWidth: 20 },  // Admin
-      6: { cellWidth: 60 },  // Solution (panjang)
-      7: { cellWidth: 24 },  // Status
-    },
-    // Buat header di tiap halaman
-    didDrawPage: (data) => {
-      doc.setFontSize(16);
-      doc.text('Classroom Issues Report', 14, 14);
-      doc.setFontSize(10);
-      doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 20);
-      // Footer halaman
-      const str = `Page ${doc.getNumberOfPages()}`;
-      doc.text(str, doc.internal.pageSize.getWidth() - 20, doc.internal.pageSize.getHeight() - 10);
-    },
-  });
+    const startY = activeFilterCount > 0 ? 32 : 26;
 
-  doc.save(`classroom-issues-${startDate}-to-${endDate}.pdf`);
-};
+    const head = [['Date', 'User', 'Category', 'Room', 'Complaint', 'Admin', 'Solution', 'Status']];
+    const body = filteredComplaints.map((c: any) => [
+      fmtDateShort(c?.date), s(c?.user_name), s(c?.category), s(c?.room_number),
+      s(c?.complaint), s(c?.admin_name), s(c?.solution ?? c?.resolution), s(c?.status),
+    ]);
 
-  // Bersihkan teks sebelum export CSV
-const cleanText = (v: unknown) => {
-  return String(v ?? '')
-    .normalize('NFKC') // normalisasi unicode
-    // hapus karakter kontrol (newline dll akan kita ganti manual)
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
-    // hapus zero-width & control marks
-    .replace(/[\u200B-\u200F\u202A-\u202E]/g, '')
-    // rapikan spasi beruntun
-    .replace(/\s+/g, ' ')
-    .trim();
-};
+    autoTable(doc, {
+      startY,
+      head,
+      body,
+      styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+      columnStyles: {
+        0: { cellWidth: 26 }, 1: { cellWidth: 36 }, 2: { cellWidth: 30 }, 3: { cellWidth: 15 },
+        4: { cellWidth: 60 }, 5: { cellWidth: 20 }, 6: { cellWidth: 60 }, 7: { cellWidth: 24 },
+      },
+    });
+    doc.save(`analytics-report-${startDate}.pdf`);
+  };
 
-const exportToCSV = () => {
-  // Urutan header sesuai permintaan
-  const headers = [
-    'Date',
-    'Time of Issue',
-    'Time of Repair',
-    'User',
-    'Category',
-    'Room',
-    'Issue',
-    'Complaint',
-    'Solution',
-    'Admin',
-    'PIC',
-    'Status',
-  ];
-
-  // helper: bungkus nilai dengan tanda kutip, escape " dan hapus newline
-  const q = (v: unknown) => {
-  const cleaned = cleanText(v).replace(/"/g, '""'); // escape kutip
-  return `"${cleaned}"`;
-};
-
-
-  const rows = filteredComplaints.map((c: any) => [
-    q(c?.date),                 // Date (yyyy-mm-dd dari DB)
-    q(c?.time_of_issue),        // Time of Issue
-    q(c?.time_of_repair),       // Time of Repair
-    q(c?.user_name),            // User
-    q(c?.category),             // Category
-    q(c?.room_number),          // Room
-    q(c?.issue),                // Issue
-    q(c?.complaint),            // Complaint
-    q(c?.solution ?? c?.resolution), // Solution (fallback ke resolution jika ada)
-    q(c?.admin_name),           // Admin
-    q((c as any)?.pic),         // PIC (DTL, IT, LSC, BM, ME)
-    q(c?.status),               // Status (late / ontime / done)
-  ]);
-
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `classroom-issues-${startDate}-to-${endDate}.csv`;
-  a.click();
-  window.URL.revokeObjectURL(url);
-};
-
-
+  const exportToCSV = () => {
+    const headers = ['Date', 'Time Issue', 'Time Repair', 'User', 'Category', 'Room', 'Issue', 'Complaint', 'Solution', 'Admin', 'PIC', 'Status'];
+    const q = (v: unknown) => `"${cleanText(v).replace(/"/g, '""')}"`;
+    
+    const rows = filteredComplaints.map((c: any) => [
+      q(c?.date), q(c?.time_of_issue), q(c?.time_of_repair), q(c?.user_name),
+      q(c?.category), q(c?.room_number), q(c?.issue), q(c?.complaint),
+      q(c?.solution ?? c?.resolution), q(c?.admin_name), q((c as any)?.pic), q(c?.status),
+    ]);
+    
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analytics-report-${startDate}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
+        {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <BarChart3 className="w-6 h-6 text-blue-600" />
           <h2 className="text-2xl font-bold text-gray-800">Analytics & Reports</h2>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 mb-6">
+        {/* PRIMARY CONTROL: Date Range */}
+        <div className="grid md:grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-100">
           <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
-              Start Date
-            </label>
-            <input
-              type="date"
-              id="startDate"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+            <input type="date" id="startDate" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
           </div>
           <div>
-            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
-              End Date
-            </label>
-            <input
-              type="date"
-              id="endDate"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+            <input type="date" id="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
           </div>
         </div>
 
+        {/* SECONDARY CONTROL: Filters (Only Show if Data Exists) */}
+        {!loading && startDate && endDate && rawComplaints.length > 0 && (
+          <div className="mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
+             <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                   <Filter className="w-4 h-4 text-gray-600" />
+                   <h3 className="text-sm font-semibold text-gray-800">Refine Results</h3>
+                   {activeFilterCount > 0 && (
+                      <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">{activeFilterCount} active</span>
+                   )}
+                </div>
+                {activeFilterCount > 0 && (
+                   <button onClick={handleResetFilters} className="text-xs flex items-center gap-1 text-gray-600 hover:text-blue-600 transition-colors">
+                      <RotateCcw className="w-3 h-3" /> Reset Filters
+                   </button>
+                )}
+             </div>
+             
+             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <select className="text-sm border-gray-300 rounded-md shadow-sm" value={filters.room} onChange={e => setFilters({...filters, room: e.target.value})}>
+                   <option value="">All Rooms</option>
+                   {ROOM_NUMBERS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+
+                <select className="text-sm border-gray-300 rounded-md shadow-sm" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}>
+                   <option value="">All Categories</option>
+                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+
+                <select className="text-sm border-gray-300 rounded-md shadow-sm" value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}>
+                   <option value="">All Status</option>
+                   <option value="ontime">On Time</option>
+                   <option value="late">Late</option>
+                </select>
+
+                <div className="relative">
+                   <input type="text" placeholder="Filter PIC..." className="w-full pl-2 pr-2 py-1.5 text-sm border border-gray-300 rounded-md" value={filters.pic} onChange={e => setFilters({...filters, pic: e.target.value})} />
+                </div>
+                
+                 <div className="relative">
+                   <input type="text" placeholder="Filter User..." className="w-full pl-2 pr-2 py-1.5 text-sm border border-gray-300 rounded-md" value={filters.user} onChange={e => setFilters({...filters, user: e.target.value})} />
+                </div>
+             </div>
+          </div>
+        )}
+
+        {/* Error Handling */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -366,16 +335,18 @@ const exportToCSV = () => {
           </div>
         )}
 
+        {/* Loading State */}
         {loading && (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">Loading data...</span>
+            <span className="ml-3 text-gray-600">Analyzing data...</span>
           </div>
         )}
 
+        {/* DASHBOARD CONTENT */}
         {!loading && startDate && endDate && filteredComplaints.length > 0 && (
           <>
-            {/* KPI cards */}
+            {/* KPI Cards */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <p className="text-sm text-blue-600 font-medium mb-1">Total Issues</p>
@@ -393,9 +364,9 @@ const exportToCSV = () => {
 
             {isClient() && (
               <>
-                {/* Charts row */}
+                {/* Charts Row 1: Pies & Bars */}
                 <div className="grid lg:grid-cols-3 gap-6 mb-6">
-                  {/* Pie Status */}
+                  {/* Status Pie */}
                   <div className="bg-white rounded-lg border p-4">
                     <h3 className="font-semibold text-gray-800 mb-3">Status Distribution</h3>
                     <div className="h-64">
@@ -403,26 +374,15 @@ const exportToCSV = () => {
                         <PieChart>
                           <Tooltip />
                           <Legend verticalAlign="bottom" height={24} />
-                          <Pie
-                            data={statusPieData}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={50}
-                            outerRadius={80}
-                            paddingAngle={3}
-                          >
-                            {statusPieData.map((_, i) => (
-                              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                            ))}
+                          <Pie data={statusPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                            {statusPieData.map((_, i) => <Cell key={i} fill={i === 0 ? '#ef4444' : '#16a34a'} />)}
                           </Pie>
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  {/* Pie Category */}
+                  {/* Category Pie */}
                   <div className="bg-white rounded-lg border p-4">
                     <h3 className="font-semibold text-gray-800 mb-3">Issues by Category</h3>
                     <div className="h-64">
@@ -430,55 +390,42 @@ const exportToCSV = () => {
                         <PieChart>
                           <Tooltip />
                           <Legend verticalAlign="bottom" height={24} />
-                          <Pie
-                            data={categoryPieData}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={90}
-                            paddingAngle={2}
-                          >
-                            {categoryPieData.map((_, i) => (
-                              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                            ))}
+                          <Pie data={categoryPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} paddingAngle={2}>
+                            {categoryPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                           </Pie>
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-
-{/* Bar Rooms */}
-<div className="bg-white rounded-lg border p-4">
-  <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
-  <div className="h-64">
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={roomBarData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="name" interval={0} angle={-15} textAnchor="end" height={50} />
-        <YAxis allowDecimals={false} />
-        <Tooltip />
-        <Bar dataKey="total" radius={[8, 8, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  </div>
-</div>
+                  {/* Top Rooms Bar */}
+                  <div className="bg-white rounded-lg border p-4">
+                    <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={roomBarData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" interval={0} angle={-15} textAnchor="end" height={50} tick={{fontSize: 12}} />
+                          <YAxis allowDecimals={false} />
+                          <Tooltip cursor={{fill: '#f3f4f6'}} />
+                          <Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
                 </div>
-                
 
-
-                {/* Line Daily Trend */}
+                {/* Line Chart: Daily Trend */}
                 <div className="bg-white rounded-lg border p-4 mb-6">
-                  <h3 className="font-semibold text-gray-800 mb-3">Daily Trend</h3>
+                  <h3 className="font-semibold text-gray-800 mb-3">Daily Issue Trend</h3>
                   <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={timeSeriesData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="day" />
-                        <YAxis allowDecimals={false} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="day" tickLine={false} />
+                        <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
                         <Tooltip />
-                        <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -486,192 +433,87 @@ const exportToCSV = () => {
               </>
             )}
 
-            {/* Lists + Export */}
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-800 mb-3">Issues by Category</h3>
-                <div className="space-y-2">
-                  {Object.entries(stats.byCategory)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([category, count]) => (
-                      <div key={category} className="flex justify-between items-center">
-                        <span className="text-sm text-gray-700">{category}</span>
-                        <span className="text-sm font-semibold text-gray-900">{count}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-800 mb-3">Top Affected Rooms</h3>
-                <div className="space-y-2">
-                  {Object.entries(stats.byRoom)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 10)
-                    .map(([room, count]) => (
-                      <div key={room} className="flex justify-between items-center">
-                        <span className="text-sm text-gray-700">{room}</span>
-                        <span className="text-sm font-semibold text-gray-900">{count}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={exportToPDF}
-                className="flex-1 bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <FileText className="w-5 h-5" />
-                Export to PDF
+            {/* List Views & Exports */}
+            <div className="flex gap-4 mb-8">
+              <button onClick={exportToPDF} className="flex-1 bg-red-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2">
+                <FileText className="w-5 h-5" /> Export PDF
               </button>
-              <button
-                onClick={() => exportToCSV()}
-                className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Download className="w-5 h-5" />
-                Export to CSV
+              <button onClick={exportToCSV} className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                <Download className="w-5 h-5" /> Export CSV
               </button>
             </div>
           </>
         )}
 
-        {!loading && startDate && endDate && filteredComplaints.length === 0 && (
-          <div className="text-center py-8">
+        {/* Empty States */}
+        {!loading && startDate && endDate && rawComplaints.length > 0 && filteredComplaints.length === 0 && (
+           <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+             <Filter className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+             <p className="text-gray-600 font-medium">No issues match your current filters</p>
+             <button onClick={handleResetFilters} className="mt-2 text-blue-600 hover:underline text-sm">Clear filters</button>
+           </div>
+        )}
+
+        {!loading && startDate && endDate && rawComplaints.length === 0 && (
+          <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No data found for selected date range</p>
+            <p className="text-gray-500">No data recorded in this date range</p>
           </div>
         )}
 
         {(!startDate || !endDate) && (
-          <div className="text-center py-8">
+          <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">Select a date range to view analytics</p>
+            <p className="text-gray-500">Please select a Start and End date to view analytics</p>
           </div>
         )}
       </div>
 
-{filteredComplaints.length > 0 && (
-  <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-    <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-      <h3 className="text-xl font-bold text-gray-800">Detailed Report</h3>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time of Issue</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time of Repair</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Room</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Issue</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Complaint</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solution</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Admin</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PIC</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {filteredComplaints.map((c: any) => (
-            <tr key={c.id ?? `${c.date}-${c.room_number}-${c.user_name}`} className="hover:bg-gray-50">
-              {/* Date */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {fmtDateShort(c?.date)}
-              </td>
-
-              {/* Time of Issue */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {fmtTime(c?.time_of_issue)}
-              </td>
-
-              {/* Time of Repair */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {fmtTime(c?.time_of_repair)}
-              </td>
-
-              {/* User */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {c?.user_name ?? '-'}
-              </td>
-
-              {/* Category */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                  {c?.category ?? '-'}
-                </span>
-              </td>
-
-              {/* Room */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {c?.room_number ?? '-'}
-              </td>
-
-              {/* Issue */}
-              <td className="px-6 py-4 text-sm text-gray-900">
-                <p className="line-clamp-2 max-w-md">
-                  {c?.issue ?? '-'}
-                </p>
-              </td>
-
-              {/* Complaint */}
-              <td className="px-6 py-4 text-sm text-gray-900">
-                <p className="line-clamp-2 max-w-md">
-                  {c?.complaint ?? '-'}
-                </p>
-              </td>
-
-              {/* Solution */}
-              <td className="px-6 py-4 text-sm text-gray-900">
-                <p className="line-clamp-2 max-w-md">
-                  {c?.solution ?? c?.resolution ?? <span className="text-gray-400 italic">No solution added</span>}
-                </p>
-              </td>
-
-              {/* Admin */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {c?.admin_name ?? 'N/A'}
-              </td>
-
-              {/* PIC */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                {(() => {
-                  const pic = (c as any)?.pic as string | undefined;
-                  if (!pic) return <span className="text-gray-400">-</span>;
-                  const cls = PIC_COLORS[pic] ?? 'bg-gray-100 text-gray-800';
-                  return (
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${cls}`}>
-                      {pic}
-                    </span>
-                  );
-                })()}
-              </td>
-
-              {/* Status */}
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-<span
-  className={`px-3 py-1 text-xs font-medium rounded-full ${
-    c?.status === 'done' || c?.status === 'ontime'
-      ? 'bg-green-100 text-green-800'
-      : 'bg-amber-100 text-amber-800'
-  }`}
->
-  {c?.status ?? ''}
-</span>
-
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
-
-
+      {/* DETAILED TABLE (Shows Filtered Data) */}
+      {filteredComplaints.length > 0 && (
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-800">Detailed Report</h3>
+            <span className="text-sm text-gray-500">{filteredComplaints.length} records</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Room</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Complaint</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PIC</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredComplaints.map((c: any) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{fmtDateShort(c?.date)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fmtTime(c?.time_of_issue)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c?.user_name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap"><span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">{c?.category}</span></td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c?.room_number}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{c?.complaint}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${PIC_COLORS[c?.pic] || 'bg-gray-100 text-gray-600'}`}>{c?.pic || '-'}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${c?.status === 'ontime' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {c?.status === 'ontime' ? 'On Time' : 'Late'}
+                       </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
